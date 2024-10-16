@@ -1,0 +1,43 @@
+{
+  "name": "eletConnect",
+  "short_name": "eletConnect",
+  "description": "O eletConnect é uma aplicação web que facilita a gestão e a participação em eletivas escolares. Os alunos podem visualizar, matricular-se e desmatricular-se de eletivas e projetos, enquanto a instituição pode gerenciar as eletivas. A plataforma é intuitiva e otimizada para garantir uma experiência de usuário eficiente e direta.",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "/logo192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/logo512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/?source=pwa",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#000000",
+  "background_color": "#ffffff",
+  "scope": "/",
+  "keywords": [ "education", "technology", "educação", "aprendizado", "ensino", "eletiva" ],
+  "categories": [ "education", "technology" ],
+  "license": "MIT",
+  "developer": {
+    "name": "eletConnect TEAM",
+    "url": "http://192.168.1.27:5173/"
+  },
+  "related_applications": [
+    {
+      "platform": "mobile",
+      "url": "http://192.168.1.27:5173/",
+      "id": "eletConnect.web"
+    }
+  ],
+  "prefer_related_applications": false
+}

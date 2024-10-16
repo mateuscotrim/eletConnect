@@ -1,0 +1,166 @@
+/* Importações de fontes e bibliotecas */
+@import url('https://fonts.googleapis.com/css2?family=Kanit:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap');
+@import "bootstrap";
+@import "bootstrap-icons";
+
+/* Variáveis de cores */
+:root {
+  --primary-color: #060607;
+  --primary-bg-color: #ffffff;
+  --primary-border-color: #28292E;
+  --secondary-bg-color: #f2f3f5;
+  --secondary-border-color: #56575A;
+  --title-color: #060607;
+  --text-color: #060607;
+  --link-color: #060607;
+  --icon-color: #060607;
+  --sidebar-color: #0A2558;
+  --sidebar-active: #081D45;
+  --input-color: #ebedef;
+  --button-color: #f0f0f0;
+  --header-bg-color: #173772f8;
+  /* Cor azul principal */
+}
+
+/* Reset de estilos */
+*,
+ul,
+li,
+button,
+input,
+a {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  text-decoration: none;
+  border: none;
+  outline: none;
+  font-family: "Roboto", sans-serif;
+}
+
+body {
+  background-color: var(--secondary-bg-color);
+}
+
+#header {
+  background-color: var(--primary-bg-color);
+  position: fixed;
+  width: 100%;
+  height: 8em;
+  z-index: 21;
+}
+
+#header-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1em 2em;
+}
+
+#header-head .logo-details {
+  display: flex;
+  align-items: flex-end;
+}
+
+#header-head .logo-details h1 {
+  font-size: 30px;
+  margin: 0;
+  font-weight: bold;
+}
+
+#header-head .profile-details {
+  display: flex;
+  align-items: center;
+  background: var(--input-color);
+  border-radius: 0 5px 5px 0;
+  padding: 5px 10px;
+}
+
+#header-head .profile-details img {
+  height: 40px;
+  width: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+#header-head .profile-details .admin_name {
+  font-size: 16px;
+  color: var(--text-color);
+  margin: 0 5.5px;
+  white-space: nowrap;
+}
+
+#header-nav {
+  background-color: var(--sidebar-color);
+  width: 100%;
+  height: 3em;
+}
+
+#header-nav ul {
+  display: flex;
+}
+
+#header-nav ul li {
+  padding: 12px;
+}
+
+#header-nav ul li a {
+  color: white;
+  display: flex;
+  gap: 10px;
+  text-decoration: none;
+}
+
+#header-nav ul .log_out {
+  position: absolute;
+  right: 0;
+}
+
+#header-nav ul li.active,
+#header-nav ul li:hover {
+  background-color: var(--sidebar-active);
+}
+
+/* ----------------------------------------------------------------------------------- */
+
+/* Estilos para o main */
+#main-section {
+  position: initial;
+  background-color: var(--primary-bg-color);
+  border-top: 24em solid var(--header-bg-color);
+}
+
+#section {
+  position: absolute;
+  top: 7.9em;
+  height: calc(100vh - 7.9em);
+  min-height: calc(100vh - 7.9em);
+  width: 100%;
+}
+
+#section .box {
+  width: calc(100% - 6em);
+  min-height: calc(100vh - 10.9em);
+  margin: 3em auto;
+
+  background-color: white;
+  box-shadow: rgba(0, 0, 0, 0.35) 0px 5px 15px;
+  overflow-y: auto;
+}
+
+#section .box .title {
+  background-color: #f1f1f1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 1em;
+  height: 4em;
+}
+
+#section .box .mid-box {
+  height: calc(100% - 4em);
+}
+
+#tb-elet::-webkit-scrollbar {
+  display: none;
+}

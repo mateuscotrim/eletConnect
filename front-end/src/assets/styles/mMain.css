@@ -1,0 +1,69 @@
+/* Global styles */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+a {
+    text-decoration: none;
+    color: inherit;
+}
+
+/* Header Styles */
+#mheader {
+    background-color: #0a2558;
+    position: fixed; /* Cabeçalho fixo no topo */
+    top: 0;
+    width: 100%;
+    height: 5em; /* Altura fixa do cabeçalho */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 12000;
+    padding: 0 1em;
+}
+
+ 
+/* Main Styles */
+#mMain {
+    background-color: white;
+    position: relative; /* Mantém o elemento dentro do fluxo */
+    height: calc(100vh - 5em - 5em); /* Altura total menos a área do cabeçalho e rodapé */
+    overflow-y: auto; /* Adiciona rolagem apenas no conteúdo interno */
+}
+
+/* Footer Styles */
+#mFooter {
+    background-color: whitesmoke;
+    position: fixed; /* Rodapé fixo na parte inferior */
+    width: 100%;
+    height: 5em; /* Altura fixa do rodapé */
+    bottom: 0;
+    z-index: 12000;
+}
+
+.footer-menu {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    height: 100%;
+    font-size: 1.2rem;
+}
+
+.footer-menu a {
+    text-decoration: none;
+    color: #0a2558;
+}
+
+.footer-menu a .active {
+    font-weight: bold;
+    color: #0a2558;
+}
+
+.black-carousel-control .carousel-control-prev-icon,
+.black-carousel-control .carousel-control-next-icon {
+    background-color: black;
+}

@@ -1,0 +1,94 @@
+ 
+
+@media print {
+    @page {
+        size: A4 portrait;
+        margin: 5mm;
+        visibility: hidden;
+    }
+
+    body {
+        margin: 0;
+        padding: 0;
+        font-size: 8px;
+        color: #000 !important; /* Todo o texto preto na impressão */
+    }
+
+    .btn-print {
+        display: none !important; /* Remover botão de impressão na impressão */
+    }
+
+    .container {
+        width: 100%;
+        padding: 0;
+        margin: 0;
+        color: #000 !important; /* Todo o texto preto na impressão */
+    }
+
+    .container, .container * {
+        visibility: visible;
+    }
+    .container {
+        position: absolute;
+        left: 0;
+        top: 0;
+    }
+
+    .eletiva-info {
+        font-size: 8px;
+        padding: 2px;
+        color: #000 !important; /* Todo o texto preto na impressão */
+    }
+
+    .lista-chamada-table {
+        table-layout: fixed;
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 8px;
+        overflow: hidden;
+        color: #000 !important; /* Todo o texto preto na impressão */
+    }
+
+    .table-responsive.no-scroll {
+        overflow-x: hidden !important;
+    }
+
+    .lista-chamada-table th,
+    .lista-chamada-table td {
+        border: 1px solid black;
+        padding: 2px;
+        word-wrap: break-word;
+        white-space: normal;
+        overflow-wrap: break-word;
+        text-align: center;
+        vertical-align: middle;
+        color: #000 !important; /* Todo o texto preto na impressão */
+    }
+
+    .rotated-header {
+        height: 20px;
+        padding: 0;
+    }
+
+    .rotated-header span.date-span {
+        display: block;
+        line-height: 20px;
+        text-align: center;
+ 
+        margin: 0 auto;
+        color: #000 !important; /* Todo o texto preto na impressão */
+    }
+
+    .table-dark {
+        background-color: #000 !important; /* Fundo preto para cabeçalho */
+        color: #000 !important; /* Texto preto no cabeçalho */
+    }
+
+    .lista-chamada-table td {
+        height: 20px;
+    }
+
+    .lista-chamada-table th {
+        min-width: 10px;
+    }
+}

@@ -1,0 +1,146 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap');
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+a,
+span,
+div,
+li,
+ul,
+ol,
+button {
+    font-family: 'Montserrat', sans-serif;
+}
+
+
+html {
+    scroll-behavior: smooth;
+}
+
+.navbar {
+    height: 5em;
+}
+
+#navbar-menu {
+    margin: 0 10em;
+}
+
+.nav-item p:hover {
+    color: #0f63b1;
+}
+
+main {
+    position: relative;
+    top: 5em;
+    height: calc(100% - 5em);
+}
+
+#painel {
+    background-color: #134574;
+    height: 40em;
+}
+
+#painel-text {
+    color: white;
+    font-size: 1.5em;
+    margin: 0 10em;
+    padding: 4em 0;
+    height: 26.6em;
+}
+
+#painel .efeito-flutuante-infinito {
+    animation: float 3s ease-in-out infinite;
+    filter: drop-shadow(5px 5px 5px rgba(0 0 0 / 95%));
+    -webkit-filter: drop-shadow(5px 5px 5px rgba(0 0 0 / 95%));
+}
+
+@keyframes float {
+
+    0% {
+        transform: translate(0, 0px);
+    }
+
+    50% {
+        transform: translate(0, 12px);
+    }
+
+    100% {
+        transform: translate(0, -0px);
+    }
+}
+
+#clientes,
+#contato {
+    padding: 3em 6em;
+}
+
+#scroll-etapa::-webkit-scrollbar {
+    width: 4px;
+    height: 6px;
+    /* A altura só é vista quando a rolagem é horizontal */
+}
+
+#scroll-etapa::-webkit-scrollbar-track {
+    background: transparent;
+    padding: 2px;
+}
+
+#scroll-etapa::-webkit-scrollbar-thumb {
+    background-color: blue;
+}
+
+
+@media (max-width: 768px) {
+
+    .robot {
+        display: none;
+    }
+
+    .navbar {
+        top: 3em;
+
+    }
+
+    #navbar-menu {
+        margin: 1em;
+        font-size: 12px;
+    }
+
+    #menu-itens {
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    #menu-logo {
+        margin-bottom: 1em;
+    }
+
+    #menu-ul {
+        display: none;
+    }
+
+    #solucoes .painel {
+        display: flex;
+        flex-direction: column;
+        height: auto;
+    }
+
+    #txt1 {
+        width: 100% !important;
+    }
+
+    #painel-text {
+        margin: 0 1em;
+        padding: 2em 0;
+    }
+
+    #clientes {
+        padding: 2em;
+    }
+
+}
