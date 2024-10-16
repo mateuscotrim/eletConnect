@@ -9,6 +9,7 @@ exports.matricularAluno = async (request, response) => {
     }
 
     try {
+        // Verificar dados da eletiva
         const { data: eletivaData, error: eletivaError } = await supabase
             .from('eletivas')
             .select('alunos_cadastrados, total_alunos')
@@ -33,6 +34,7 @@ exports.matricularAluno = async (request, response) => {
             return response.status(400).json({ mensagem: 'Número máximo de alunos atingido para esta eletiva' });
         }
 
+        // Verificar dados do aluno
         const { data: alunoData, error: alunoError } = await supabase
             .from('alunos')
             .select('matricula, qnt_eletiva, qnt_trilha, qnt_projetoVida')
@@ -46,23 +48,25 @@ exports.matricularAluno = async (request, response) => {
             return response.status(alunoError ? 500 : 404).json({ mensagem: 'Erro ao associar o aluno à eletiva', detalhe: mensagem });
         }
 
+        // Verificar se o aluno já está associado à eletiva
         const { data: associacaoData, error: associacaoError } = await supabase
             .from('aluno_eletiva')
             .select('*')
             .eq('matricula_aluno', matricula)
             .eq('codigo_eletiva', codigo)
-            .eq('instituicao', instituicao)
-            .single();
+            .eq('instituicao', instituicao);
 
         if (associacaoError) {
             console.error('Erro ao verificar associação do aluno à eletiva:', associacaoError);
             return response.status(500).json({ mensagem: 'Erro ao associar o aluno à eletiva', detalhe: associacaoError.message });
         }
 
-        if (associacaoData) {
+        // Verificar se a associação já existe
+        if (associacaoData && associacaoData.length > 0) {
             return response.status(400).json({ mensagem: 'Aluno já associado à eletiva' });
         }
 
+        // Associar aluno à eletiva
         const { error: associacaoError2 } = await supabase
             .from('aluno_eletiva')
             .insert([{ matricula_aluno: matricula, codigo_eletiva: codigo, instituicao }]);
@@ -74,6 +78,7 @@ exports.matricularAluno = async (request, response) => {
 
         alunosCadastrados += 1;
 
+        // Atualizar a quantidade de alunos cadastrados na eletiva
         const { error: updateError } = await supabase
             .from('eletivas')
             .update({ alunos_cadastrados: alunosCadastrados })
@@ -85,6 +90,7 @@ exports.matricularAluno = async (request, response) => {
             return response.status(500).json({ mensagem: 'Erro ao atualizar o contador de alunos cadastrados na eletiva', detalhe: updateError.message });
         }
 
+        // Atualizar a quantidade de eletivas/trilhas/projetos do aluno
         let tipoEletivaField = '';
         switch (tipo) {
             case 'Eletiva':
