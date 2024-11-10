@@ -1,35 +1,51 @@
 const supabase = require('../../../configs/supabase');
 
 exports.editarAviso = async (req, res) => {
-    const { avisoParaSalvar, instituicao } = req.body;
+  const { avisoParaSalvar, instituicao } = req.body;
 
-    try {
-        // Verifica se 'series' tem valores e une esses valores em uma string. Caso contrário, usa 'serie'
-        const seriesParaSalvar = avisoParaSalvar.series && avisoParaSalvar.series.length > 0 
-            ? avisoParaSalvar.series.join(', ')  // Concatena múltiplas séries em uma string separada por vírgulas
-            : avisoParaSalvar.serie || null;  // Se 'serie' for definida, usamos ela
-
-        // Atualiza o aviso no banco de dados com os novos valores
-        const { data, error } = await supabase
-            .from('avisos')
-            .update({
-                titulo: avisoParaSalvar.titulo,
-                conteudo: avisoParaSalvar.conteudo,
-                author: avisoParaSalvar.author,
-                series: seriesParaSalvar,  // Atualiza a série ou séries
-                turma: avisoParaSalvar.turma || null,  // Atualiza a turma, se fornecida
-                cor: avisoParaSalvar.cor || 'primary'  // Atualiza a cor, se fornecida, com valor padrão 'primary'
-            })
-            .eq('id', avisoParaSalvar.id)
-            .eq('instituicao', instituicao)
-            .select();
-
-        if (error) {
-            return res.status(500).json({ mensagem: error.message });
-        }
-
-        return res.status(200).json(data[0]);  // Retorna o primeiro item atualizado
-    } catch (error) {
-        return res.status(500).json({ mensagem: 'Erro ao editar aviso.' });
+  try {
+    // Validação dos campos obrigatórios
+    if (!avisoParaSalvar || !avisoParaSalvar.id || !instituicao) {
+      return res.status(400).json({
+        mensagem: 'Todos os campos obrigatórios devem ser preenchidos: aviso, ID e instituição.',
+      });
     }
+
+    // Preparação dos valores de 'series' para salvar
+    let seriesParaSalvar = null;
+    if (avisoParaSalvar.series?.length) {
+      seriesParaSalvar = avisoParaSalvar.series.join(', '); // Une múltiplas séries em uma string
+    } else if (avisoParaSalvar.serie) {
+      seriesParaSalvar = avisoParaSalvar.serie; // Salva a série única se fornecida
+    }
+
+    // Atualiza o aviso no banco de dados
+    const { data, error } = await supabase
+      .from('avisos')
+      .update({
+        titulo: avisoParaSalvar.titulo,
+        conteudo: avisoParaSalvar.conteudo,
+        author: avisoParaSalvar.author,
+        series: seriesParaSalvar,
+        turma: avisoParaSalvar.turma || null,
+        cor: avisoParaSalvar.cor || 'primary',
+      })
+      .eq('id', avisoParaSalvar.id)
+      .eq('instituicao', instituicao)
+      .select();
+
+    // Tratamento de erro ao atualizar
+    if (error) {
+      return res.status(500).json({
+        mensagem: 'Houve um problema ao atualizar o aviso. Tente novamente mais tarde.',
+      });
+    }
+
+    // Retorna o aviso atualizado
+    return res.status(200).json(data[0]);
+  } catch (error) {
+    return res.status(500).json({
+      mensagem: 'Ocorreu um erro inesperado ao editar o aviso. Tente novamente mais tarde.',
+    });
+  }
 };

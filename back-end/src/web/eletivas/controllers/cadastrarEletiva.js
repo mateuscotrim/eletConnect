@@ -1,50 +1,73 @@
-const supabase = require('../../../configs/supabase');
 const { v4: uuidv4 } = require('uuid');
-
-function createCode() {
-    const uuid = uuidv4();
-    const numericPart = parseInt(uuid.replace(/-/g, '').slice(0, 8), 16);
-    return String(numericPart % 10000).padStart(4, '0');
-}
+const supabase = require('../../../configs/supabase');
 
 exports.cadastrarEletiva = async (request, response) => {
-    const { instituicao, nome, tipo, dia, horario, professor, sala, total_alunos, serie, turma, exclusiva } = request.body;
+    const {
+        instituicao,
+        nome,
+        tipo,
+        dia,
+        horario,
+        professor,
+        sala,
+        totalAlunos,
+        isExclusiva, // Campo que define se a eletiva é exclusiva
+        series, // Array de séries (para exclusividade por série)
+        serie, // Série (para exclusividade por turma)
+        turma, // Turma (para exclusividade por turma)
+        status
+    } = request.body;
 
-    if (!instituicao || !nome || !tipo || !professor || !total_alunos) {
-        return response.status(400).json({ mensagem: 'Dados incompletos' });
-    }
-
-    const isExclusiva = exclusiva === true || exclusiva === 'true';
-
-    if (isExclusiva && (!serie || !turma)) {
-        return response.status(400).json({ mensagem: 'Dados da série e turma são necessários para eletivas exclusivas' });
-    }
+    // Log dos dados recebidos
+    console.log('Dados recebidos:', request.body);
 
     try {
-        const { data: eletivaData, error: eletivaError } = await supabase
-            .from('eletivas')
-            .insert([{
-                codigo: createCode(),
-                instituicao,
-                nome,
-                tipo,
-                dia,
-                sala,
-                horario,
-                professor,
-                total_alunos,
-                status: 'Ativa',
-                exclusiva: isExclusiva, 
-                serie: isExclusiva ? serie : null, 
-                turma: isExclusiva ? turma : null  
-            }]);
-
-        if (eletivaError) {
-            return response.status(500).json({ mensagem: 'Erro ao cadastrar a eletiva', detalhe: eletivaError.message });
+        // Validações iniciais de campos obrigatórios
+        if (!instituicao || !nome || !tipo || !dia || !horario || !professor || !sala || !totalAlunos || !status) {
+            return response.status(400).json({ mensagem: 'Todos os campos obrigatórios devem ser preenchidos.' });
         }
 
-        return response.status(201).json({ mensagem: 'Eletiva cadastrada com sucesso', eletiva: eletivaData });
-    } catch (error) {
-        return response.status(500).json({ mensagem: 'Erro ao cadastrar a eletiva', detalhe: error.message });
+        // Validações adicionais para exclusividade
+        if (isExclusiva) {
+            if ((!series || series.length === 0) && (!serie || !turma)) {
+                return response.status(400).json({ mensagem: 'Os dados de exclusividade devem ser fornecidos (séries ou série e turma).' });
+            }
+        }
+
+        // Geração de um código único
+        const codigo = uuidv4();
+
+        // Inserção no banco de dados
+        const { data, error } = await supabase
+            .from('eletivas')
+            .insert([
+                {
+                    codigo,
+                    instituicao,
+                    nome,
+                    tipo,
+                    dia,
+                    horario,
+                    professor,
+                    sala,
+                    total_alunos: totalAlunos,
+                    status,
+                    exclusiva: isExclusiva,
+                    series: isExclusiva && series ? series : null,
+                    serie: isExclusiva && serie ? serie : null,
+                    turma: isExclusiva && turma ? turma : null,
+                }
+            ]);
+
+        if (error) {
+            console.error('Erro ao inserir no banco de dados:', error);
+            return response.status(500).json({ mensagem: 'Erro ao cadastrar a eletiva.', detalhes: error.message });
+        }
+
+        // Resposta de sucesso
+        return response.status(201).json({ mensagem: 'Eletiva cadastrada com sucesso!', data });
+    } catch (erro) {
+        console.error('Erro no servidor:', erro);
+        return response.status(500).json({ mensagem: 'Erro interno do servidor.', detalhes: erro.message });
     }
 };

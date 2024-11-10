@@ -16,6 +16,7 @@ const listarEletivasAluno = require('./controllers/listarEletivasAluno').listarE
 const definirPeriodo = require('./controllers/definirPeriodo').definirPeriodo;
 const obterPeriodo = require('./controllers/obterPeriodo').obterPeriodo;
 const listarEletivasTodosAlunos = require('./controllers/listarEletivasTodosAlunos').listarEletivasTodosAlunos;
+const listarAlunosNaoMatriculados = require('./controllers/listarAlunosNaoMatriculados').listarAlunosNaoMatriculados
 
 // Definir as rotas
 router.post('/listar', listarEletivas);
@@ -32,5 +33,6 @@ router.post('/listar-eletivas-aluno', listarEletivasAluno);
 router.post('/definir-periodo', definirPeriodo);
 router.post('/obter-periodo', obterPeriodo);
 router.post('/listar-todos-alunos', listarEletivasTodosAlunos);
+router.post('/listar-alunos-nao-matriculados', listarAlunosNaoMatriculados);
 
 module.exports = router;

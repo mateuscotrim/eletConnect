@@ -2,6 +2,7 @@ const supabase = require('../../../configs/supabase');
 
 exports.quantidades = async (request, response) => {
     const { instituicao } = request.body;
+    console.log(instituicao);
 
     if (!instituicao) {
         return response.status(400).json({ mensagem: 'Instituição não informada' });

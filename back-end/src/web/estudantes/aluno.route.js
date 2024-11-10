@@ -13,7 +13,7 @@ const excluirMultiplos = require('./controllers/excluirMultiplos').excluirMultip
 const verificarDados = require('./controllers/verificarDados').verificarDados;
 
 // Definir as rotas
-router.post('/listar', listarAlunos);
+router.post('/listar-alunos', listarAlunos);
 router.post('/consultar', consultarAluno);
 router.post('/cadastrar', cadastrarAluno);
 router.post('/cadastrar-planilha', cadastrarAlunoPlanilha);

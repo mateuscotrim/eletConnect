@@ -1,34 +1,32 @@
 const supabase = require('../../../configs/supabase');
 const { verifyToken } = require('../services/tokenService');
 
-exports.confirmRegistration = async (request, response) => {
-    const { token } = request.body;
+exports.confirmRegistration = async (req, res) => {
+    const { token } = req.body;
 
-    const { status, message } = await verifyToken(token);
-    if (status !== true) {
-        return response.status(401).json({ mensagem: message });
+    const { status } = await verifyToken(token);
+    if (!status) {
+        return res.status(401).json({ mensagem: 'O token de verificação é inválido ou expirou.' });
     }
 
     try {
-        const { data: user, error: userERROR } = await supabase
+        const { data: user, error: userError } = await supabase
             .from('usuarios')
             .select('confirmed_at, id, status')
             .eq('token', token)
             .single();
 
-        if (!user) {
-            return response.status(401).json({ mensagem: 'Token inválido.' });
+        if (userError || !user) {
+            return res.status(401).json({ mensagem: 'Token inválido ou expirado. Não foi possível concluir a verificação de e-mail.' });
         }
 
+        // Verifica se a conta já foi confirmada
         if (user.confirmed_at) {
-            return response.status(401).json({ mensagem: 'E-mail já verificado.' });
+            return res.status(400).json({ mensagem: 'Sua conta já foi verificada anteriormente.' });
         }
 
-        if (userERROR) {
-            return response.status(401).json({ mensagem: 'Erro ao verificar o token.' });
-        }
-
-        const { error } = await supabase
+        // Atualiza a confirmação do usuário e o status para "Ativo"
+        const { error: updateError } = await supabase
             .from('usuarios')
             .update({
                 confirmed_at: new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }),
@@ -36,12 +34,12 @@ exports.confirmRegistration = async (request, response) => {
             })
             .eq('id', user.id);
 
-        if (error) {
-            return response.status(500).json({ mensagem: 'Erro ao atualizar a confirmação do e-mail e status do usuário.' });
+        if (updateError) {
+            return res.status(500).json({ mensagem: 'Erro ao ativar a conta. Por favor, tente novamente mais tarde.' });
         }
 
-        return response.status(200).json({ mensagem: 'E-mail verificado com sucesso! Sua conta está agora ativa.' });
+        return res.status(200).json({ mensagem: 'E-mail verificado com sucesso! Sua conta foi ativada e está pronta para uso.' });
     } catch (error) {
-        response.status(500).json({ mensagem: 'Erro ao tentar validar sua conta.' });
+        return res.status(500).json({ mensagem: 'Ocorreu um erro inesperado ao validar sua conta. Por favor, tente novamente mais tarde.' });
     }
 };

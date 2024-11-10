@@ -3,88 +3,74 @@ const supabase = require('../../../configs/supabase');
 exports.verificarDados = async (request, response) => {
     const { dados, instituicao } = request.body;
 
-    if (!dados || dados.length === 0 || !instituicao) {
-        return response.status(400).json({ mensagem: 'Dados inválidos ou instituição não informada. Verifique e tente novamente.' });
-    }
-
     try {
-        const erros = {};
+        // Verificar se os dados estão presentes e se são um array
+        if (!Array.isArray(dados) || dados.length === 0) {
+            return response.status(400).json({ mensagem: 'Dados inválidos ou vazios.' });
+        }
+
+        if (!instituicao) {
+            return response.status(400).json({ mensagem: 'Instituição não informada.' });
+        }
+
         const matriculasRecebidas = dados.map((aluno) => aluno.matricula);
 
-        const { data: alunosExistentes, error: erroConsulta } = await supabase
-            .from('alunos')
-            .select('matricula')
-            .in('matricula', matriculasRecebidas)
-            .eq('instituicao', instituicao);
+        let alunosExistentes = [];
+        let pagina = 0;
+        const limite = 1000;
+        let buscarMais = true;
 
-        if (erroConsulta) {
-            return response.status(500).json({ mensagem: `Erro ao consultar banco de dados: ${erroConsulta.message}` });
+        // Paginação para buscar matrículas já cadastradas no banco
+        while (buscarMais) {
+            const { data, error } = await supabase
+                .from('alunos')
+                .select('matricula')
+                .in('matricula', matriculasRecebidas)
+                .eq('instituicao', instituicao)
+                .range(pagina * limite, (pagina + 1) * limite - 1);
+
+            if (error) {
+                return response.status(500).json({ mensagem: `Erro ao consultar banco de dados: ${error.message}` });
+            }
+
+            if (!Array.isArray(data)) {
+                return response.status(500).json({ mensagem: 'Os dados retornados do Supabase não estão no formato esperado.' });
+            }
+
+            if (data.length === 0 || data.length < limite) {
+                buscarMais = false; // Não há mais registros para buscar
+            }
+
+            alunosExistentes = alunosExistentes.concat(data); // Concatenando os dados
+            pagina++; // Incrementando a página para o próximo lote
         }
 
         const matriculasExistentes = alunosExistentes.map((aluno) => aluno.matricula);
+        const erros = {};
 
-        const isNumero = (valor) => /^\d+$/.test(valor);
-        const isNomeValido = (valor) => /^[a-zA-Z\s]+$/.test(valor) && valor.length >= 3;
-        const isTurmaValida = (valor) => /^[A-Z]$/.test(valor.trim().toUpperCase());
-
-        const contadorMatriculas = {};
-
+        // Verificar se as matrículas recebidas já estão cadastradas
         dados.forEach((row, index) => {
-            const errosLinha = {};
-
-            const serie = row['serie']?.toString().trim();
-            if (serie) {
-                const seriesValidas = ['1', '2', '3', '1º ano', '2º ano', '3º ano', '1 ano', '2 ano', '3 ano'];
-
-                if (!seriesValidas.includes(serie)) {
-                    errosLinha['serie'] = 'Série inválida. Deve ser "1", "2", "3", "1º ano", "2º ano" ou "3º ano".';
-                } else {
-                    if (['1', '2', '3'].includes(serie)) {
-                        row['serie'] = `${serie}º ano`;
-                    }
-                }
-            } else {
-                errosLinha['serie'] = 'Série é obrigatória.';
-            }
-
             const matricula = row['matricula']?.toString().trim();
-            if (!matricula) {
-                errosLinha['matricula'] = 'Matrícula é obrigatória.';
-            } else if (!isNumero(matricula)) {
-                errosLinha['matricula'] = 'Matrícula deve conter apenas números.';
-            } else {
-                contadorMatriculas[matricula] = (contadorMatriculas[matricula] || 0) + 1;
-
-                if (contadorMatriculas[matricula] > 1) {
-                    errosLinha['matricula'] = `Matrícula "${matricula}" está duplicada na planilha.`;
-                } else if (matriculasExistentes.includes(matricula)) {
-                    errosLinha['matricula'] = `Matrícula "${matricula}" já está registrada no sistema.`;
-                }
+            if (matriculasExistentes.includes(matricula)) {
+                erros[index] = { matricula: `Matrícula "${matricula}" já está registrada na instituição.` };
             }
 
-            const nome = row['nome']?.toString().trim();
-            if (!nome) {
-                errosLinha['nome'] = 'Nome é obrigatório.';
-            } else if (!isNomeValido(nome)) {
-                errosLinha['nome'] = 'Nome deve ter pelo menos 3 caracteres e não pode conter números.';
-            }
-
-            const turma = row['turma']?.toString().trim().toUpperCase();
-            if (!turma) {
-                errosLinha['turma'] = 'Turma é obrigatória.';
-            } else if (!isTurmaValida(turma)) {
-                errosLinha['turma'] = 'Turma inválida. Deve ser uma letra maiúscula (A-Z).';
-            } else {
-                row['turma'] = turma;
-            }
-
-            if (Object.keys(errosLinha).length > 0) {
-                erros[index] = errosLinha;
+            // Verificar se a série é válida ('1º ano', '2º ano', ou '3º ano')
+            const serie = row['serie']?.toString().trim();
+            if (!['1º ano', '2º ano', '3º ano'].includes(serie)) {
+                erros[index] = {
+                    ...erros[index],
+                    serie: `Série "${serie}" é inválida. Deve ser '1º ano', '2º ano' ou '3º ano'.`,
+                };
             }
         });
 
-        return response.status(200).json({ erros });
+        if (Object.keys(erros).length > 0) {
+            return response.status(200).json({ erros }); // Retorna os erros encontrados
+        }
+
+        return response.status(200).json({ erros: {} }); // Retorna vazio se não houver erros
     } catch (error) {
-        return response.status(500).json({ mensagem: 'Erro interno ao validar dados. Contate o suporte.', detalhe: error.message });
+        return response.status(500).json({ mensagem: `Erro ao verificar dados: ${error.message}` });
     }
 };

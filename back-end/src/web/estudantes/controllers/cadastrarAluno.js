@@ -2,15 +2,31 @@ const supabase = require('../../../configs/supabase');
 const bcrypt = require('bcrypt');
 
 exports.cadastrarAluno = async (request, response) => {
-    const { matricula, nome, serie, turma, instituicao, senha } = request.body;
+    const { matricula, nome, serie, turma, instituicao } = request.body;
 
-    if (!matricula || !nome || !turma || !instituicao || !senha) {
+    if (!matricula || !nome || !turma || !instituicao) {
         return response.status(400).json({ mensagem: 'Dados inválidos. Todos os campos obrigatórios devem ser preenchidos.' });
     }
 
     try {
+        // Verificar se a matrícula já existe
+        const { data: alunoExistente, error: erroConsulta } = await supabase
+            .from('alunos')
+            .select('matricula')
+            .eq('matricula', matricula)
+            .eq('instituicao', instituicao)
+            .single(); // Espera um único resultado
+
+        // Se já existe um aluno com a mesma matrícula, retornar erro
+        if (alunoExistente) {
+            return response.status(409).json({ mensagem: 'Matrícula já cadastrada. Por favor, insira uma nova matrícula.' });
+        }
+
+        // Gerar a senha padrão e criptografá-la
+        const senha = '07654321';
         const senhaCriptografada = await bcrypt.hash(senha, 10);
 
+        // Inserir o novo aluno
         const { data: alunoData, error: alunoError } = await supabase
             .from('alunos')
             .insert([

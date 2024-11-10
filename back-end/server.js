@@ -3,105 +3,144 @@ const express = require('express');
 const session = require('express-session');
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
-const morgan = require('morgan');
 const cors = require('cors');
-const path = require('path');
-const os = require('os');
+const supabase = require('./src/configs/supabase');
 
 const app = express();
 
-const HOST = process.env.HOST || '0.0.0.0';
-const PORT = process.env.PORT || 3001;
+// Configuração para confiar no proxy mais próximo
+app.set('trust proxy', 1);
 
-// Função para obter o endereço IP local
-function obterEnderecoIPLocal() {
-  const interfaces = os.networkInterfaces();
-  for (const nomeInterface of Object.keys(interfaces)) {
-    for (const iface of interfaces[nomeInterface]) {
-      if (iface.family === 'IPv4' && !iface.internal) {
-        return iface.address;
-      }
-    }
-  }
-  return '127.0.0.1';
-}
-
-const IPLocal = obterEnderecoIPLocal();
-// console.log('Endereço IP local:', IPLocal); // Comentado para não aparecer no log
-
-// Configuração do CORS
+// Configuração de CORS com suporte a credenciais para o frontend
 app.use(cors({
-  origin: [
-    'http://localhost:5173',
-    `http://${IPLocal}:5173`,
-  ],
-  credentials: true,
+    origin: process.env.FRONTEND_URL,
+    credentials: true,
 }));
 
-// Middlewares básicos
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-// app.use(morgan('dev')); // Se deseja remover logs de requisição, comente ou remova esta linha
+// Limitação de taxa de requisições por IP para evitar abusos
+app.use(rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutos
+    max: 1000, // Limite de 1000 requisições por IP
+    standardHeaders: true,
+    legacyHeaders: false,
+}));
 
-// Segurança básica com cabeçalhos HTTP
+// Configurações de segurança usando Helmet
 app.use(helmet());
 
-// Limitação de requisições por IP para prevenir abusos
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 10000,
-});
-app.use(limiter);
+// Configuração para parsing de JSON e URL-encoded
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
-// Configuração da sessão
+// Funções auxiliares para manipulação de sessões no Supabase
+const saveSession = async (sessionId, sessionData, maxAge = 24 * 60 * 60 * 1000) => {
+    const expiresAt = new Date(Date.now() + maxAge).toISOString();
+    const { error } = await supabase
+        .from('sessions')
+        .upsert({
+            id: sessionId,
+            session_data: sessionData,
+            expires_at: expiresAt
+        });
+    if (error) {
+        console.error(`Erro ao salvar a sessão: ${error.message}`);
+        throw error;
+    }
+    return sessionId;
+};
+
+const getSession = async (sessionId) => {
+    const { data, error } = await supabase
+        .from('sessions')
+        .select('session_data')
+        .eq('id', sessionId)
+        .single();
+    if (error && error.code !== 'PGRST116') {
+        console.error(`Erro ao buscar a sessão: ${error.message}`);
+        return null;
+    }
+    return data ? data.session_data : null;
+};
+
+const deleteSession = async (sessionId) => {
+    const { error } = await supabase
+        .from('sessions')
+        .delete()
+        .eq('id', sessionId);
+    if (error) {
+        console.error(`Erro ao remover a sessão: ${error.message}`);
+        throw error;
+    }
+};
+
+// Store personalizada para sessões usando Supabase
+class SupabaseSessionStore extends session.Store {
+    async get(sid, callback) {
+        try {
+            const sessionData = await getSession(sid);
+            callback(null, sessionData);
+        } catch (error) {
+            callback(error);
+        }
+    }
+
+    async set(sid, sessionData, callback) {
+        try {
+            await saveSession(sid, sessionData);
+            callback(null);
+        } catch (error) {
+            callback(error);
+        }
+    }
+
+    async destroy(sid, callback) {
+        try {
+            await deleteSession(sid);
+            callback(null);
+        } catch (error) {
+            callback(error);
+        }
+    }
+}
+
+// Configuração do `express-session` com a Store personalizada
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'segredo-padrao',
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: false, // `false` para desenvolvimento em HTTP
-    httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000, // 24 horas
-  },
+    store: new SupabaseSessionStore(),
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        secure: process.env.NODE_ENV === 'production',
+        httpOnly: true,
+        sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax',
+        maxAge: 24 * 60 * 60 * 1000, // 24 horas
+    }
 }));
 
-// Log da sessão para depuração
-app.use((req, res, next) => {
-  // console.log('Sessão:', req.session); // Comentado para não aparecer no log
-  next();
-});
-
-// Servir arquivos estáticos da build do React
-app.use(express.static(path.join(__dirname, 'client', 'dist')));
-
-// Endpoint de status
+// Rota de status para verificar o funcionamento do servidor
 app.get('/status', (req, res) => {
-  res.status(200).json({
-    status: 'OK',
-    message: 'Servidor está funcionando corretamente',
-  });
+    res.status(200).json({
+        status: 'OK',
+        message: 'Servidor está funcionando corretamente'
+    });
 });
 
-// Importação das rotas
+// Rotas principais da API
 app.use(require('./src/routes'));
 
-// Rota para servir o index.html para qualquer outra rota (para compatibilidade com o React Router)
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'client', 'dist', 'index.html'));
-});
-
-// Tratamento de erros
+// Middleware de tratamento de erros
 app.use((err, req, res, next) => {
-  console.error('Erro:', err.stack);
-  res.status(err.status || 500).json({
-    error: {
-      message: err.message,
-      ...(process.env.NODE_ENV === 'development' ? { stack: err.stack } : {}),
-    },
-  });
+    if (res.headersSent) return next(err);
+    res.status(err.status || 500).json({
+        error: {
+            message: 'Erro interno do servidor',
+            ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+        }
+    });
 });
 
 // Inicialização do servidor
-app.listen(PORT, HOST, () => {
-  console.warn(`Servidor rodando em http://${IPLocal}:${PORT} (ou http://localhost:${PORT})`); // Comentado para não aparecer no log
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.info(`Servidor online na porta: ${PORT}`);
 });

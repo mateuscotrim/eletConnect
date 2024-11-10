@@ -1,9 +1,9 @@
-exports.checkSession = async (request, response) => {
+exports.checkSession = async (req, res) => {
     try {
-        if (request.session && request.session.user) {
-            const { id, matricula, nome, email, foto, cargo, status, instituicao } = request.session.user;
+        if (req.session?.user) {
+            const { id, matricula, nome, email, foto, cargo, status, instituicao } = req.session.user;
 
-            return response.status(200).json({
+            return res.status(200).json({
                 id,
                 matricula,
                 nome,
@@ -14,9 +14,9 @@ exports.checkSession = async (request, response) => {
                 instituicao
             });
         } else {
-            return response.status(401).json({ mensagem: 'Nenhuma sessão ativa foi encontrada.' });
+            return res.status(401).json({ mensagem: 'Nenhuma sessão ativa encontrada. Por favor, faça login novamente.' });
         }
     } catch (error) {
-        return response.status(500).json({ mensagem: 'Erro ao tentar verificar sua sessão.' });
+        return res.status(500).json({ mensagem: 'Ocorreu um erro inesperado ao verificar sua sessão. Por favor, tente novamente mais tarde.' });
     }
 };

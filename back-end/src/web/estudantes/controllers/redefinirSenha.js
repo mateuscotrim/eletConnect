@@ -2,13 +2,14 @@ const supabase = require('../../../configs/supabase');
 const bcrypt = require('bcrypt');
 
 exports.redefinirSenha = async (request, response) => {
-    const { matricula, senha } = request.body;
+    const { matricula } = request.body;
 
-    if (!matricula || !senha) {
+    if (!matricula ) {
         return response.status(400).json({ mensagem: 'Dados inválidos' });
     }
 
     try {
+        const senha = '07654321';
         const senhaCriptografada = await bcrypt.hash(senha, 10);
 
         const { data: alunoData, error: alunoError } = await supabase
