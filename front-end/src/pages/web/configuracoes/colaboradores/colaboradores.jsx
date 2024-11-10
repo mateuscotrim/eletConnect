@@ -2,7 +2,10 @@ import React, { useState, useEffect } from 'react';
 import axios from '../../../../configs/axios';
 import Header from '../../../../components/header';
 import showToast from '../../../../utills/toasts';
-import EditarColaborador from './editarColaborador';
+import CadastrarColaboradorModal from './modals/cadastrarColaborador';
+import EditarColaboradorModal from './modals/editarColaborador';
+import ExcluirColaboradorModal from './modals/excluirColaborador';
+import ExcluirSelecionadosModal from './modals/excluirSelecionados';
 
 export default function Colaboradores() {
     const [sortBy, setSortBy] = useState({ column: '', asc: true });
@@ -10,25 +13,24 @@ export default function Colaboradores() {
     const [currentPage, setCurrentPage] = useState(1);
     const [data, setData] = useState([]);
     const [selectedColaboradores, setSelectedColaboradores] = useState([]);
-    const [dadosColaborador, setDadosColaborador] = useState({ matricula: '', nome: '', email: '', cargo: '', status: 'Aguardando', fazerLogin: false });
     const [matriculaParaEditar, setMatriculaParaEditar] = useState('');
     const [matriculaParaExcluir, setMatriculaParaExcluir] = useState('');
     const [nomeParaExcluir, setNomeParaExcluir] = useState('');
     const [carregando, setCarregando] = useState(false);
-
     const itemsPerPage = 10;
     const user = JSON.parse(sessionStorage.getItem('user'));
     const escola = JSON.parse(sessionStorage.getItem('escola'));
 
     useEffect(() => {
         listarColaboradores();
-    }, []);
 
-    useEffect(() => {
-        if (dadosColaborador.email === '') {
-            setDadosColaborador(prev => ({ ...prev, fazerLogin: false }));
+        // Verificar se há uma mensagem de sucesso no sessionStorage e exibi-la
+        const mensagemSucesso = sessionStorage.getItem('mensagemSucesso');
+        if (mensagemSucesso) {
+            showToast('success', mensagemSucesso);  // Exibe o toast com a mensagem de sucesso
+            sessionStorage.removeItem('mensagemSucesso');  // Remove a mensagem após exibir
         }
-    }, [dadosColaborador.email]);
+    }, []);
 
     const listarColaboradores = async () => {
         setCarregando(true);
@@ -40,76 +42,8 @@ export default function Colaboradores() {
                 throw new Error('Erro ao buscar colaboradores.');
             }
         } catch (error) {
-            showToast('danger', error.response?.data?.mensagem);
+            showToast('danger', error.response?.data?.mensagem || 'Erro ao buscar colaboradores.');
             setData([]);
-        } finally {
-            setCarregando(false);
-        }
-    };
-
-    const cadastrarColaborador = async (e) => {
-        e.preventDefault();
-
-        if (dadosColaborador.email === '') {
-            setDadosColaborador((prev) => ({ ...prev, fazerLogin: false }));
-        }
-
-        setCarregando(true);
-        try {
-            const response = await axios.post('/colaboradores/cadastrar', { ...dadosColaborador, instituicao: escola.cnpj });
-            if (response.status === 200) {
-                e.target.reset();
-                showToast('success', `O colaborador <b>${dadosColaborador.nome}</b> foi cadastrado com sucesso`);
-                listarColaboradores();
-            } else {
-                throw new Error('Erro ao cadastrar colaborador.');
-            }
-        } catch (error) {
-            showToast('danger', error.response?.data?.mensagem);
-        } finally {
-            setCarregando(false);
-        }
-    };
-
-    const excluirColaborador = async (e) => {
-        e.preventDefault();
-        setCarregando(true);
-        try {
-            const response = await axios.post('/colaboradores/excluir', { matricula: matriculaParaExcluir, instituicao: escola.cnpj });
-            if (response.status === 200) {
-                showToast('success', `O colaborador <b>${nomeParaExcluir}</b> foi excluído com sucesso`);
-                listarColaboradores();
-            } else {
-                throw new Error('Erro ao excluir colaborador.');
-            }
-        } catch (error) {
-            showToast('danger', error.response?.data?.mensagem);
-        } finally {
-            setCarregando(false);
-        }
-    };
-
-    const excluirSelecionados = async () => {
-        if (selectedColaboradores.includes(user.matricula)) {
-            showToast('warning', 'Você não pode excluir a si mesmo.');
-            return;
-        }
-
-        if (selectedColaboradores.length === 0) {
-            showToast('warning', 'Selecione pelo menos um colaborador para excluir');
-            return;
-        }
-
-        setCarregando(true);
-        try {
-            const response = await axios.post('/colaboradores/excluir-multiplos', { matriculas: selectedColaboradores, instituicao: escola.cnpj });
-            if (response.status === 200) {
-                showToast('success', 'Colaboradores selecionados foram excluídos com sucesso');
-                setSelectedColaboradores([]);
-                listarColaboradores();
-            }
-        } catch (error) {
-            showToast('danger', error.response?.data?.mensagem);
         } finally {
             setCarregando(false);
         }
@@ -127,7 +61,11 @@ export default function Colaboradores() {
     const compareValues = (a, b, asc) => {
         const aValue = a[sortBy.column] || '';
         const bValue = b[sortBy.column] || '';
-        return isNumeric(aValue) && isNumeric(bValue) ? (asc ? aValue - bValue : bValue - aValue) : asc ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
+        return isNumeric(aValue) && isNumeric(bValue)
+            ? (asc ? aValue - bValue : bValue - aValue)
+            : asc
+                ? aValue.localeCompare(bValue)
+                : bValue.localeCompare(aValue);
     };
 
     const isNumeric = (value) => !isNaN(value) && !isNaN(parseFloat(value));
@@ -138,11 +76,13 @@ export default function Colaboradores() {
     };
 
     const filteredAndSortedData = Array.isArray(data)
-        ? data.filter((item) =>
-            [item.nome, item.matricula, item.cargo]
-                .map((val) => val.toLowerCase())
-                .some((val) => val.includes(filterText.toLowerCase()))
-        ).sort((a, b) => compareValues(a, b, sortBy.asc))
+        ? data
+            .filter((item) =>
+                [item.nome, item.matricula, item.cargo]
+                    .map((val) => val.toLowerCase())
+                    .some((val) => val.includes(filterText.toLowerCase()))
+            )
+            .sort((a, b) => compareValues(a, b, sortBy.asc))
         : [];
 
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -208,7 +148,7 @@ export default function Colaboradores() {
 
     return (
         <>
-            <div id='toast-container' className="toast-container position-fixed bottom-0 end-0 p-3"></div>
+            <div id='toast-container' className="toast-container position-absolute bottom-0 end-0 m-2"></div>
             <Header />
             <main id='main-section'>
                 <section id='section'>
@@ -229,7 +169,7 @@ export default function Colaboradores() {
                                     </button>
                                     {selectedColaboradores.length > 0 && (
                                         <button className='btn btn-danger' data-bs-toggle="modal" data-bs-target="#excluirSelecionadosModal">
-                                            <i className="bi bi-trash3-fill"></i>&ensp;Excluir colaboradores
+                                            <i className="bi bi-trash3-fill"></i>&ensp;Excluir selecionados
                                         </button>
                                     )}
                                 </div>
@@ -247,7 +187,7 @@ export default function Colaboradores() {
                                     <div className="d-flex justify-content-end">
                                         <div className="w-50 ms-auto mb-2">
                                             <form className="position-relative">
-                                                <input type="text" className="form-control" placeholder="Buscar colaborador... (Matricula ou Nome)" onChange={handleInputChange} />
+                                                <input type="text" className="form-control" placeholder="Buscar colaborador... (Matrícula ou Nome)" onChange={handleInputChange} />
                                                 <i className="bi bi-search position-absolute top-50 end-0 translate-middle-y me-3"></i>
                                             </form>
                                         </div>
@@ -313,56 +253,55 @@ export default function Colaboradores() {
                                         </table>
                                     </div>
                                     <nav aria-label="Page navigation example" className='d-flex align-items-center justify-content-between'>
-    <div className="text-center">
-        Mostrando {obterIntervaloAtual()} de {filteredAndSortedData.length} resultados
-    </div>
-    <ul className="pagination justify-content-end">
-        <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
-            <button className="page-link" onClick={paginacaoAnterior}>
-                &laquo; Anterior
-            </button>
-        </li>
-        {totalPaginas > 0 && (
-            <li className={`page-item ${currentPage === 1 ? 'active' : ''}`}>
-                <button className="page-link" onClick={() => setCurrentPage(1)}>
-                    1
-                </button>
-            </li>
-        )}
-        {currentPage > 3 && (
-            <li className="page-item disabled">
-                <span className="page-link">...</span>
-            </li>
-        )}
-        {paginasVisiveis().map((numeroPagina) =>
-            numeroPagina !== 1 && numeroPagina !== totalPaginas ? (
-                <li key={numeroPagina} className={`page-item ${currentPage === numeroPagina ? 'active' : ''}`}>
-                    <button className="page-link" onClick={() => setCurrentPage(numeroPagina)}>
-                        {numeroPagina}
-                    </button>
-                </li>
-            ) : null
-        )}
-        {currentPage < totalPaginas - 2 && (
-            <li className="page-item disabled">
-                <span className="page-link">...</span>
-            </li>
-        )}
-        {totalPaginas > 1 && (
-            <li className={`page-item ${currentPage === totalPaginas ? 'active' : ''}`}>
-                <button className="page-link" onClick={() => setCurrentPage(totalPaginas)}>
-                    {totalPaginas}
-                </button>
-            </li>
-        )}
-        <li className={`page-item ${currentPage === totalPaginas ? 'disabled' : ''}`}>
-            <button className="page-link" onClick={paginacaoProxima}>
-                Próximo &raquo;
-            </button>
-        </li>
- 
-    </ul>
-</nav>
+                                        <div className="text-center">
+                                            Mostrando {obterIntervaloAtual()} de {filteredAndSortedData.length} resultados
+                                        </div>
+                                        <ul className="pagination justify-content-end">
+                                            <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
+                                                <button className="page-link" onClick={paginacaoAnterior}>
+                                                    &laquo; Anterior
+                                                </button>
+                                            </li>
+                                            {totalPaginas > 0 && (
+                                                <li className={`page-item ${currentPage === 1 ? 'active' : ''}`}>
+                                                    <button className="page-link" onClick={() => setCurrentPage(1)}>
+                                                        1
+                                                    </button>
+                                                </li>
+                                            )}
+                                            {currentPage > 3 && (
+                                                <li className="page-item disabled">
+                                                    <span className="page-link">...</span>
+                                                </li>
+                                            )}
+                                            {paginasVisiveis().map((numeroPagina) =>
+                                                numeroPagina !== 1 && numeroPagina !== totalPaginas ? (
+                                                    <li key={numeroPagina} className={`page-item ${currentPage === numeroPagina ? 'active' : ''}`}>
+                                                        <button className="page-link" onClick={() => setCurrentPage(numeroPagina)}>
+                                                            {numeroPagina}
+                                                        </button>
+                                                    </li>
+                                                ) : null
+                                            )}
+                                            {currentPage < totalPaginas - 2 && (
+                                                <li className="page-item disabled">
+                                                    <span className="page-link">...</span>
+                                                </li>
+                                            )}
+                                            {totalPaginas > 1 && (
+                                                <li className={`page-item ${currentPage === totalPaginas ? 'active' : ''}`}>
+                                                    <button className="page-link" onClick={() => setCurrentPage(totalPaginas)}>
+                                                        {totalPaginas}
+                                                    </button>
+                                                </li>
+                                            )}
+                                            <li className={`page-item ${currentPage === totalPaginas ? 'disabled' : ''}`}>
+                                                <button className="page-link" onClick={paginacaoProxima}>
+                                                    Próximo &raquo;
+                                                </button>
+                                            </li>
+                                        </ul>
+                                    </nav>
                                 </>
                             )}
                         </div>
@@ -370,133 +309,11 @@ export default function Colaboradores() {
                 </section>
             </main>
 
-            {/* Modal: Cadastrar Colaborador */}
-            <div className="modal fade" id="cadastrarColaborador" tabIndex="-1" aria-labelledby="cadastrarColaboradorLabel" aria-hidden="true">
-                <div className="modal-dialog modal-lg">
-                    <div className="modal-content">
-                        <div className="modal-header">
-                            <div className="d-flex align-items-center gap-2">
-                                <span className='d-flex align-items-center gap-2'>
-                                    <i className="bi bi-people-fill fs-3"></i>
-                                    <h4 className='m-0 fs-4'>Colaboradores</h4>
-                                </span>
-                                <i className="bi bi-arrow-right-short fs-4"></i>
-                                <h5 className="m-0">Cadastrar</h5>
-                            </div>
-                            <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <form onSubmit={cadastrarColaborador} >
-                            <div className="modal-body">
-                                <div className="row g-3">
-                                    <div className="col-md-3">
-                                        <label htmlFor="matricula" className="form-label">Matrícula <span className='text-danger'>*</span></label>
-                                        <input type="text" className="form-control" id="matricula" value={dadosColaborador.matricula} onChange={(e) => setDadosColaborador({ ...dadosColaborador, matricula: e.target.value })} required />
-                                    </div>
-                                    <div className="col-md-9">
-                                        <label htmlFor="nome" className="form-label">Nome <span className='text-danger'>*</span></label>
-                                        <input type="text" className="form-control" id="nome" value={dadosColaborador.nome} onChange={(e) => setDadosColaborador({ ...dadosColaborador, nome: e.target.value })} required />
-                                    </div>
-                                    <div className="col-md-4">
-                                        <label htmlFor="cargo" className="form-label">Cargo <span className="text-danger">*</span></label>
-                                        <select className="form-select" id="cargo" value={dadosColaborador.cargo} onChange={(e) => setDadosColaborador({ ...dadosColaborador, cargo: e.target.value })} required >
-                                            <option value="" disabled>Selecione...</option>
-                                            <option value="Diretor">Diretor</option>
-                                            <option value="Coordenador">Coordenador</option>
-                                            <option value="Professor">Professor</option>
-                                            <option value="Colaborador">Colaborador</option>
-                                        </select>
-                                    </div>
-                                    <div className="col-md-8">
-                                        <label htmlFor="email" className="form-label">E-mail <span className="text-danger">*</span></label>
-                                        <input type="email" className="form-control" id="email" value={dadosColaborador.email} onChange={(e) => setDadosColaborador({ ...dadosColaborador, email: e.target.value })} />
-                                    </div>
-                                    <div className="col-md-8">
-                                        <div className="form-check form-switch">
-                                            <input className="form-check-input" type="checkbox" role="switch" id="flexSwitchCheckLogin" checked={dadosColaborador.fazerLogin} onChange={(e) => setDadosColaborador({ ...dadosColaborador, fazerLogin: e.target.checked })} />
-                                            <label className="form-check-label" htmlFor="flexSwitchCheckLogin">Permitir que o colaborador faça login no sistema?</label>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="modal-footer">
-                                <button type="button" className="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                <button type='submit' className='btn btn-primary' data-bs-dismiss="modal">
-                                    <i className="bi bi-person-add"></i>&ensp;Cadastrar
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            </div>
-
-            {/* Modal: Editar Colaborador */}
-            <div className="modal fade" id="editarColaborador" tabIndex="-1" aria-labelledby="editarColaboradorLabel" aria-hidden="true">
-                <div className="modal-dialog modal-xl">
-                    <div className="modal-content">
-                        <div className="modal-header">
-                            <div className="d-flex align-items-center gap-2">
-                                <span className='d-flex align-items-center gap-2'>
-                                    <i className="bi bi-people-fill fs-3"></i>
-                                    <h4 className='m-0 fs-4'>Colaboradores</h4>
-                                </span>
-                                <i className="bi bi-arrow-right-short fs-4"></i>
-                                <h5 className="m-0">Editar</h5>
-                            </div>
-                            <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <EditarColaborador matricula={matriculaParaEditar} />
-                    </div>
-                </div>
-            </div>
-
-            {/* Modal: Excluir Colaborador */}
-            <div className="modal fade" id="excluirColaborador" tabIndex="-1" aria-labelledby="excluirColaboradorLabel" aria-hidden="true">
-                <div className="modal-dialog">
-                    <div className="modal-content">
-                        <div className="modal-header">
-                            <div className="d-flex align-items-center gap-2">
-                                <span className='d-flex align-items-center gap-2'>
-                                    <i className="bi bi-people-fill fs-3"></i>
-                                    <h4 className='m-0 fs-4'>Colaboradores</h4>
-                                </span>
-                                <i className="bi bi-arrow-right-short fs-4"></i>
-                                <h5 className="m-0">Excluir</h5>
-                            </div>
-                            <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div className="modal-body">
-                            <p>Você está prestes a excluir todos os dados do(a) colaborador(a) <b>{nomeParaExcluir}</b>, com matrícula <b>{matriculaParaExcluir}</b>. Esta ação não pode ser desfeita. Deseja prosseguir?</p>
-                        </div>
-                        <div className="modal-footer">
-                            <button type="button" className="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                            <button type="button" className="btn btn-danger" onClick={excluirColaborador} data-bs-dismiss="modal">
-                                <i className="bi bi-trash3-fill"></i>&ensp;Excluir
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Modal: Excluir Múltiplos Colaboradores */}
-            <div className="modal fade" id="excluirSelecionadosModal" tabIndex="-1" aria-labelledby="excluirSelecionadosModalLabel" aria-hidden="true">
-                <div className="modal-dialog">
-                    <div className="modal-content">
-                        <div className="modal-header">
-                            <h5 className="modal-title" id="excluirSelecionadosModalLabel">Excluir Colaboradores Selecionados</h5>
-                            <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div className="modal-body">
-                            <p>Você está prestes a excluir os seguintes colaboradores: <b>{getSelectedColaboradoresNames()}</b>. Esta ação não pode ser desfeita. Deseja prosseguir?</p>
-                        </div>
-                        <div className="modal-footer">
-                            <button type="button" className="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                            <button type="button" className="btn btn-danger" onClick={excluirSelecionados} data-bs-dismiss="modal">
-                                <i className="bi bi-trash3-fill"></i>&ensp;Excluir Selecionados
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            {/* Modais */}
+            <CadastrarColaboradorModal listarColaboradores={listarColaboradores} instituicao={escola.cnpj} />
+            <EditarColaboradorModal matricula={matriculaParaEditar} listarColaboradores={listarColaboradores} instituicao={escola.cnpj} />
+            <ExcluirColaboradorModal nome={nomeParaExcluir} matricula={matriculaParaExcluir} listarColaboradores={listarColaboradores} instituicao={escola.cnpj} />
+            <ExcluirSelecionadosModal selectedColaboradores={selectedColaboradores} getSelectedColaboradoresNames={getSelectedColaboradoresNames} listarColaboradores={listarColaboradores} instituicao={escola.cnpj} />
         </>
     );
 }

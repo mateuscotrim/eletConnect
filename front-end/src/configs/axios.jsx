@@ -1,27 +1,28 @@
 import axios from 'axios';
 
-const IP_API = `http://${window.location.hostname}:3001`;
-const LOCALHOST_API = import.meta.env.VITE_API || 'http://localhost:3001';
+// URL da API na Render e localhost
+const RENDER_API = import.meta.env.VITE_API;
+const LOCAL_API = 'http://localhost:3001';
 
-// Cria uma instância do Axios com a baseURL inicialmente definida para o IP local
+// Cria uma instância do Axios com a baseURL definida para a API da Render
 const instance = axios.create({
-  baseURL: IP_API,
+  baseURL: RENDER_API,
 });
 
-// Função para verificar se o IP local está acessível
-async function verificarIPLocal() {
+// Função para verificar a conectividade com a API da Render e alternar para o localhost se necessário
+async function verificarAPI() {
   try {
-    // Tenta acessar o endpoint '/status' no IP local
+    // Tenta acessar o endpoint '/status' na API da Render
     await instance.get('/status');
-    console.log('Conectado ao IP local com sucesso.', IP_API);
+    console.log('Conectado com sucesso à API da Render:', RENDER_API);
   } catch (error) {
-    // Se houver erro, altera a baseURL para usar o localhost
-    instance.defaults.baseURL = LOCALHOST_API;
-    console.warn('IP local não acessível, mudando para localhost:', LOCALHOST_API);
+    // Se a API da Render não estiver acessível, define a baseURL para o localhost
+    instance.defaults.baseURL = LOCAL_API;
+    console.warn('API da Render não acessível, mudando para localhost:', LOCAL_API);
   }
 }
 
 // Executa a verificação assim que o módulo é carregado
-verificarIPLocal();
+verificarAPI();
 
 export default instance;

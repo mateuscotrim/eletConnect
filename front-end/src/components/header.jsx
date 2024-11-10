@@ -42,12 +42,12 @@ export default function Header() {
     return (
         <header id='header'>
             <div id='header-head' className='header-head'>
-                <Link to={'/home'} className='logo-details gap-2 text-black'>
+                <span className='logo-details gap-2 text-black'>
                     <img width={40} src={logo} alt='' />
                     <h1>eletConnect</h1>
-                </Link>
+                </span>
                 <div className="d-flex">
-                    <img className='image-school p-1' width={50} src={escola?.logotipo || ""} alt="" />
+                    <img height={50} className='image-school' src={escola?.logotipo || ""} alt="" />
                     <div className="profile-details">
                         <img src={user?.foto || "https://contas.acesso.gov.br/cdn/images/user-avatar.png"} alt="" />
                         <span className="admin_name">{user?.nome || ""}</span>

@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from '../../../configs/axios';
+import { useNavigate } from 'react-router-dom';
 import 'bootstrap';
 axios.defaults.withCredentials = true;
 
@@ -7,79 +8,87 @@ export default function Verification() {
     const [isLoading, setIsLoading] = useState(true);
     const [mensagem, setMensagem] = useState('Verificando...');
     const [subMensagem, setSubMensagem] = useState('');
+    const navigate = useNavigate();
 
-    useEffect(() => {
-        const checkSessionAndInstitution = async () => {
+    const handleError = useCallback((error, subMsg) => {
+        let errorMessage = 'Erro inesperado. Tente novamente.';
+        if (error.response) {
+            errorMessage = error.response.data?.mensagem || error.response.statusText;
+        } else if (error.request) {
+            errorMessage = 'Não foi possível se comunicar com o servidor. Verifique sua conexão.';
+        } else {
+            errorMessage = error.message;
+        }
+        setMensagem(errorMessage);
+        setSubMensagem(subMsg || 'Redirecionando...');
+        sessionStorage.clear();
+        setTimeout(() => navigate('/login'), 2000);
+    }, [navigate]);
+
+    const verifyInstitution = useCallback(async (userId) => {
+        const storedInstitution = sessionStorage.getItem('escola');
+        if (!storedInstitution) {
             try {
-                const responseSession = await axios.get('/auth/check-session');
-
-                if (responseSession.status === 200) {
-                    const user = responseSession.data;
-                    if (user.status === 'Inativo') {
-                        handleError(new Error('Usuário inativo'), 'Redirecionando para login...');
-                        return;
-                    }
-
-                    sessionStorage.setItem('user', JSON.stringify(user));
-                    await checkInstituicao(user.id);
-                }
+                const responseInstitution = await axios.post('/instituicao/verificar', { id: userId });
+                const institutionData = responseInstitution.data.userData;
+                sessionStorage.setItem('escola', JSON.stringify(responseInstitution.data));
+                navigateUser(!!institutionData?.instituicao);
             } catch (error) {
                 handleError(error, 'Redirecionando...');
             }
-        };
+        } else {
+            const institutionData = JSON.parse(storedInstitution).userData;
+            navigateUser(!!institutionData?.instituicao);
+        }
+    }, [handleError]);
 
-        checkSessionAndInstitution();
-    }, []);
-
-    const checkInstituicao = async (userId) => {
+    const verifySession = useCallback(async () => {
         try {
-            const responseEscola = await axios.post('/instituicao/verificar', { id: userId });
-            if (responseEscola.data.userData?.instituicao === null) {
-                sessionStorage.setItem('escola', JSON.stringify(responseEscola.data));
-                navigateUser(false);
-            } else if (responseEscola.status === 200) {
-                sessionStorage.setItem('escola', JSON.stringify(responseEscola.data));
-                navigateUser(true);
+            const storedUser = sessionStorage.getItem('user');
+            if (!storedUser) {
+                const responseSession = await axios.get('/auth/check-session', { withCredentials: true });
+                const user = responseSession.data;
+
+                if (user.status === 'Inativo') {
+                    handleError(new Error('Usuário inativo'), 'Redirecionando para login...');
+                    return;
+                }
+
+                sessionStorage.setItem('user', JSON.stringify(user));
+                await verifyInstitution(user.id);
+            } else {
+                const user = JSON.parse(storedUser);
+                await verifyInstitution(user.id);
             }
         } catch (error) {
-            handleError(error, 'Redirecionando...');
+            handleError(error, 'Redirecionando para login...');
         }
-    };
+    }, [handleError, verifyInstitution]);
+
+    useEffect(() => {
+        verifySession();
+    }, [verifySession]);
 
     const navigateUser = (hasInstitution) => {
         setIsLoading(false);
         if (hasInstitution) {
-            console.log('Usuário logado e com instituição associada');
-            window.location.href = '/home';
+            navigate('/home');
         } else {
-            console.log('Usuário logado, mas sem instituição associada');
-            window.location.href = '/settings/institution';
+            navigate('/first-access');
         }
-    };
-
-    const handleError = (error, subMsg) => {
-        const errorMessage = error.response?.data?.mensagem || error.message;
-        setMensagem(errorMessage);
-        setSubMensagem(subMsg || 'Redirecionando...');
-        sessionStorage.clear();
-        setTimeout(() => {
-            window.location.href = '/login';
-        }, 2000);
     };
 
     if (isLoading) {
         return (
-            <div className='position-absolute top-50 start-50 translate-middle'>
+            <div className='position-absolute top-50 start-50 translate-middle text-center'>
                 <div className="d-flex align-items-center gap-4">
-                    <strong role="status"><p id='sub-mensagem' className='m-0'>{subMensagem}</p></strong>
-                    <div className="spinner-border" aria-hidden="true"></div>
+                    <div className="spinner-border" role="status" aria-hidden="true"></div>
+                    <strong>{subMensagem}</strong>
                 </div>
-                <div>
-                    <p id='mensagem' className='m-0'>{mensagem}</p>
-                </div>
+                <p className='mt-3'>{mensagem}</p>
             </div>
         );
     }
 
     return null;
-};
+}

@@ -38,7 +38,7 @@ export default function Home() {
     return (
         <>
             <MHeader />
-            <main id="mMain" className="container pt-3" style={{ paddingBottom: '5em', overflowY: 'auto' }}>
+            <main id="mMain" className="p-4" style={{ paddingBottom: '5em', overflowY: 'auto' }}>
                 {carregando ? (
                     <div className="d-flex justify-content-center align-items-center mb-4">
                         <div className="spinner-border text-primary" role="status">

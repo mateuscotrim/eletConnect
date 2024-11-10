@@ -3,8 +3,11 @@ import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import axios from '../../../configs/axios';
 import Header from '../../../components/header';
 import showToast from '../../../utills/toasts';
-import EditarEletiva from './editarEletiva';
-import ChamadaComImpressao from './listaChamada';
+import ModalMatricularAluno from './modals/matricularAluno';
+import ModalDesmatricularAluno from './modals/desmatricularAluno';
+import ModalEditarEletiva from './modals/editarEletiva';
+import ModalExcluirEletiva from './modals/excluirEletiva';
+import ChamadaComImpressao from './modals/listaChamada';
 import '../../../assets/styles/my-bootstrap.css';
 
 export default function GerenciarEletiva() {
@@ -25,16 +28,18 @@ export default function GerenciarEletiva() {
     const [mostrarOutrasTurmas, setMostrarOutrasTurmas] = useState(false);
 
     useEffect(() => {
-        if (!codigoEletiva) {
-            showToast('warning', 'Código da eletiva não encontrado.');
-            setCarregando(prev => ({ ...prev, geral: false }));
-            return;
-        }
+        const carregarDados = async () => {
+            if (!codigoEletiva) {
+                setCarregando(prev => ({ ...prev, geral: false }));
+                return;
+            }
 
-        const carregarDadosEletiva = async () => {
             try {
                 await buscarDetalhesEletiva();
                 await listarAlunosMatriculados();
+                if (user) {
+                    await listarAlunosNaoMatriculados();
+                }
             } catch (error) {
                 showToast('danger', error.response?.data?.mensagem || 'Erro ao carregar dados da eletiva.');
             } finally {
@@ -42,23 +47,27 @@ export default function GerenciarEletiva() {
             }
         };
 
-        carregarDadosEletiva();
-    }, [codigoEletiva]);
+        carregarDados();
+    }, []);
 
     useEffect(() => {
-        if (user && eletiva) {
-            listarTodosAlunos();
-        }
-    }, [mostrarOutrasTurmas, eletiva]);
+        listarAlunosNaoMatriculados();
+    }, [mostrarOutrasTurmas]);
 
     const buscarDetalhesEletiva = async () => {
         try {
             const { data } = await axios.post('/eletivas/buscar', { instituicao: user.instituicao, codigo: codigoEletiva });
-            const detalhes = data.find(e => e.codigo === codigoEletiva);
-            if (detalhes) {
-                setEletiva(detalhes);
+            if (data.length > 0) {
+                const detalhes = data.find(e => e.codigo === codigoEletiva);
+                if (detalhes) {
+                    setEletiva(detalhes);
+
+                }
+            } else {
+                showToast('warning', 'Detalhes da eletiva não encontrados.');
             }
         } catch (error) {
+            console.error('Erro ao buscar detalhes da eletiva:', error);
             showToast('danger', error.response?.data?.mensagem || 'Erro ao buscar detalhes da eletiva.');
         }
     };
@@ -66,134 +75,96 @@ export default function GerenciarEletiva() {
     const listarAlunosMatriculados = async () => {
         try {
             const { data } = await axios.post('/eletivas/listar-alunos-eletiva', { instituicao: user.instituicao, codigo: codigoEletiva });
-            const alunosOrdenados = (data || []).sort((a, b) => a.nome.localeCompare(b.nome));
-            setAlunosMatriculados(alunosOrdenados);
-            setAlunosMatriculadosOriginais(alunosOrdenados);
+            if (data.length > 0) {
+                const alunosOrdenados = data.sort((a, b) => a.nome.localeCompare(b.nome));
+                setAlunosMatriculados(alunosOrdenados);
+                setAlunosMatriculadosOriginais(alunosOrdenados);
+            }
         } catch (error) {
+            console.error('Erro ao listar alunos da eletiva:', error);
             showToast('danger', error.response?.data?.mensagem || 'Erro ao listar alunos da eletiva.');
         }
     };
 
-    const listarTodosAlunos = async () => {
+    const listarAlunosNaoMatriculados = async () => {
         try {
             setCarregando(prev => ({ ...prev, modal: true }));
-            const { data } = await axios.post('/estudantes/listar', { instituicao: user.instituicao });
 
-            if (data?.alunosData) {
-                let alunosDisponiveis = data.alunosData.filter(aluno => !alunosMatriculados.some(a => a.matricula === aluno.matricula));
+            const { data: alunosNaoMatriculados } = await axios.post('/eletivas/listar-alunos-nao-matriculados', {
+                instituicao: user.instituicao,
+                codigoEletiva: codigoEletiva
+            });
+
+            if (alunosNaoMatriculados.length > 0) {
+                let alunosDisponiveis = alunosNaoMatriculados;
 
                 if (eletiva.exclusiva && !mostrarOutrasTurmas) {
-                    alunosDisponiveis = alunosDisponiveis.filter(aluno => aluno.serie === eletiva.serie && aluno.turma === eletiva.turma);
+                    if (eletiva.series && typeof eletiva.series === 'string') {
+                        // Faz o parse da string JSON para um array
+                        const seriesArray = JSON.parse(eletiva.series);
+
+                        if (Array.isArray(seriesArray) && seriesArray.length > 0) {
+                            // Filtra alunos que pertencem às séries exclusivas, considerando apenas o número da série
+                            alunosDisponiveis = alunosDisponiveis.filter(aluno => {
+                                const serieAluno = aluno.serie.split(' ')[0].trim().toLowerCase(); // Extrai apenas o número da série do aluno
+                                return seriesArray.map(serie => serie.split(' ')[0].trim().toLowerCase()).includes(serieAluno);
+                            });
+                        }
+                    } else if (eletiva.serie && eletiva.turma) {
+                        // Mantém a lógica existente para filtrar por série e turma
+                        alunosDisponiveis = alunosDisponiveis.filter(aluno =>
+                            aluno.serie.split(' ')[0].trim().toLowerCase() === eletiva.serie.split(' ')[0].trim().toLowerCase() &&
+                            aluno.turma.trim().toLowerCase() === eletiva.turma.trim().toLowerCase()
+                        );
+                    }
                 }
 
-                alunosDisponiveis.sort((a, b) => a.nome.localeCompare(b.nome));
+                if (mostrarOutrasTurmas) {
+                    alunosDisponiveis = alunosNaoMatriculados;
+                }
+
                 setTodosAlunos(alunosDisponiveis);
                 setTodosAlunosOriginais(alunosDisponiveis);
-            }
+            } 
         } catch (error) {
-            showToast('danger', error.response?.data?.mensagem || 'Erro ao listar alunos disponíveis.');
+            console.error('Erro ao listar alunos não matriculados:', error);
+            showToast('danger', error.response?.data?.mensagem || 'Erro ao listar alunos não matriculados.');
         } finally {
             setCarregando(prev => ({ ...prev, modal: false }));
         }
     };
 
-    const filtrarAlunos = (e) => {
-        const termo = e.target.value.toLowerCase();
-        setBusca(prev => ({ ...prev, termo }));
+    const filtrarLista = (termo, lista) => {
+        if (!termo) return lista;
+        const termoLower = termo.toLowerCase().replace(/º/g, ''); // Remove o símbolo 'º' do termo de busca
 
-        if (termo === '') {
-            setAlunosMatriculados(alunosMatriculadosOriginais);
-        } else {
-            const alunosFiltrados = alunosMatriculadosOriginais.filter(aluno =>
-                aluno.nome.toLowerCase().includes(termo) ||
-                aluno.matricula.toLowerCase().includes(termo)
-            );
-            alunosFiltrados.sort((a, b) => a.nome.localeCompare(b.nome));
-            setAlunosMatriculados(alunosFiltrados);
-        }
+        return lista.filter(aluno => {
+            const nomeMatch = aluno.nome.toLowerCase().includes(termoLower);
+            const matriculaMatch = aluno.matricula.toLowerCase().includes(termoLower);
+
+            // Normaliza a série e a turma, removendo o 'º'
+            const serieTurmaAluno = `${aluno.serie} ${aluno.turma}`.toLowerCase().replace(/º/g, '');
+            const serieTurmaMatch = serieTurmaAluno.includes(termoLower);
+
+            return nomeMatch || matriculaMatch || serieTurmaMatch;
+        }).sort((a, b) => a.nome.localeCompare(b.nome));
+    };
+
+    const filtrarAlunos = (e) => {
+        const termo = e.target.value;
+        setBusca(prev => ({ ...prev, termo }));
+        setAlunosMatriculados(filtrarLista(termo, alunosMatriculadosOriginais));
     };
 
     const filtrarAlunosMatricula = (e) => {
-        const termoMatricula = e.target.value.toLowerCase();
-        setBusca(prev => ({ ...prev, termoMatricula }));
-
-        if (termoMatricula === '') {
-            setTodosAlunos(todosAlunosOriginais);
-        } else {
-            const alunosFiltrados = todosAlunosOriginais.filter(aluno =>
-                aluno.nome.toLowerCase().includes(termoMatricula) ||
-                aluno.matricula.toLowerCase().includes(termoMatricula)
-            );
-            alunosFiltrados.sort((a, b) => a.nome.localeCompare(b.nome));
-            setTodosAlunos(alunosFiltrados);
-        }
+        const termoMatricula = e.target.value;
+        setBusca(prev => ({ ...prev, termoMatricula: termoMatricula }));
+        setTodosAlunos(filtrarLista(termoMatricula, todosAlunosOriginais));
     };
 
-    const handleSelecaoAluno = (matricula) => {
-        setAlunosSelecionados(prev => prev.includes(matricula) ? prev.filter(m => m !== matricula) : [...prev, matricula]);
-    };
-
-    const matricularAlunos = async () => {
-        if (!user || alunosSelecionados.length === 0) {
-            showToast('warning', 'É necessário selecionar pelo menos um aluno.');
-            return;
-        }
-
-        try {
-            const resposta = await axios.post('/eletivas/matricular-multiplos', {
-                instituicao: user.instituicao,
-                codigo: codigoEletiva,
-                matriculas: alunosSelecionados,
-                tipo: eletiva.tipo
-            });
-
-            if (resposta.status === 201) {
-                showToast('success', `${alunosSelecionados.length} aluno(s) foram matriculados com sucesso.`);
-                const novosAlunos = todosAlunos.filter(aluno => alunosSelecionados.includes(aluno.matricula));
-                setAlunosMatriculados(prev => [...prev, ...novosAlunos]);
-                setTodosAlunos(prev => prev.filter(aluno => !alunosSelecionados.includes(aluno.matricula)));
-                setAlunosSelecionados([]);
-            }
-        } catch (error) {
-            showToast('danger', error.response?.data?.mensagem || 'Erro ao matricular alunos.');
-        }
-    };
-
-    const desmatricularAluno = async () => {
-        if (!user || !alunoSelecionado.matricula) return;
-
-        try {
-            const resposta = await axios.post('/eletivas/desmatricular-aluno', {
-                instituicao: user.instituicao,
-                codigo: codigoEletiva,
-                matricula: alunoSelecionado.matricula,
-                tipo: eletiva.tipo
-            });
-            if (resposta.status === 200) {
-                showToast('success', `O(a) aluno(a) <b>${alunoSelecionado.nome}</b> foi removido(a) da eletiva.`);
-                setAlunosMatriculados(prev => prev.filter(a => a.matricula !== alunoSelecionado.matricula));
-                setAlunoSelecionado({ matricula: '', nome: '' });
-            }
-        } catch (error) {
-            showToast('danger', error.response?.data?.mensagem || 'Erro ao desmatricular aluno.');
-        }
-    };
-
-    const excluirEletiva = async (e) => {
-        e.preventDefault();
-        try {
-            const resposta = await axios.post('/eletivas/excluir', { codigo: codigoEletiva, instituicao: user.instituicao, tipo: eletiva.tipo });
-            if (resposta.status === 200) {
-                showToast('success', 'Eletiva excluída com sucesso!');
-                setTimeout(() => navigate('/electives'), 2000);
-            }
-        } catch (error) {
-            showToast('danger', error.response.data.mensagem);
-        }
-    };
     return (
         <>
-            <div id='toast-container' className="toast-container position-fixed bottom-0 end-0 p-3"></div>
+            <div id='toast-container' className="toast-container position-absolute bottom-0 end-0 m-2"></div>
             <Header />
             <main id='main-section'>
                 <section id='section'>
@@ -238,7 +209,7 @@ export default function GerenciarEletiva() {
                                                 <input type="text" placeholder="Buscar aluno... (Matricula ou Nome)" className="form-control" value={busca.termo} onChange={filtrarAlunos} />
                                                 <i className="bi bi-search position-absolute top-50 end-0 translate-middle-y me-3"></i>
                                             </div>
-                                            <button className="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalMatricularAluno" onClick={listarTodosAlunos}>
+                                            <button className="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalMatricularAluno" onClick={listarAlunosNaoMatriculados}>
                                                 <i className="bi bi-person-plus"></i>&ensp;Matricular
                                             </button>
                                         </div>
@@ -273,7 +244,7 @@ export default function GerenciarEletiva() {
                                             <p className="text-center m-0 mt-2 text-danger fw-bold">Nenhum aluno matriculado encontrado.</p>
                                         )}
                                     </div>
-                                    <div className="vr"></div>
+                                    <div className="vr "></div>
                                     <div className="box-gerenciamento w-50 px-4">
                                         <div className="p-4 my-4 shadow-sm border-left-primary bg-light-subtle">
                                             <div className="card-body">
@@ -307,17 +278,27 @@ export default function GerenciarEletiva() {
                                                     <div className="col-md-6 mb-3">
                                                         <h6 className="text-secondary">Alunos</h6>
                                                         <ul className="list-unstyled">
-                                                            <li><b>Total de Alunos:</b> {alunosMatriculados.length}/{eletiva.total_alunos}</li>
-                                                            {eletiva.exclusiva && eletiva.serie && eletiva.turma && (
-                                                                <li><b>Exclusiva para:</b> {eletiva.serie} {eletiva.turma}</li>
+                                                            <li><b>Total de Alunos:</b> {alunosMatriculados.length}/{eletiva.total_alunos || 'N/A'}</li>
+                                                            {eletiva.exclusiva && (
+                                                                <li>
+                                                                    <b>Exclusividade: </b>
+                                                                    {eletiva.series && typeof eletiva.series === 'string' && eletiva.series.trim() !== ''
+                                                                        ? (() => {
+                                                                            try {
+                                                                                const seriesArray = JSON.parse(eletiva.series);
+                                                                                return `${seriesArray.join(', ')}`;
+                                                                            } catch (error) {
+                                                                                return `${eletiva.series}`;
+                                                                            }
+                                                                        })()
+                                                                        : (eletiva.serie && eletiva.turma) ? `${eletiva.serie} ${eletiva.turma}` : 'Não especificada'}
+                                                                </li>
                                                             )}
                                                         </ul>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
-
-
                                     </div>
                                 </div>
                             </>
@@ -326,133 +307,9 @@ export default function GerenciarEletiva() {
                 </section>
             </main>
 
-            {/* Modal Matricular Aluno - Ajustado para selecionar múltiplos alunos */}
-            <div className="modal fade" id="modalMatricularAluno" tabIndex="-1" aria-labelledby="modalMatricularAlunoLabel" aria-hidden="true">
-                <div className="modal-dialog modal-lg modal-dialog-scrollable">
-                    <div className="modal-content">
-                        <div className="modal-header">
-                            <div className="d-flex align-items-center gap-2">
-                                <span className='d-flex align-items-center gap-2'>
-                                    <i className="bi bi-journal-bookmark-fill fs-3"></i>
-                                    <h4 className='m-0 fs-4'>Eletivas</h4>
-                                </span>
-                                <i className="bi bi-arrow-right-short fs-4"></i>
-                                <h5 className="m-0">Matricular</h5>
-                            </div>
-                            <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div className="modal-body">
-                            {carregando.modal ? (
-                                <div className="d-flex justify-content-center pt-4">
-                                    <div className="spinner-border text-primary" role="status">
-                                        <span className="visually-hidden">Carregando...</span>
-                                    </div>
-                                </div>
-                            ) : (
-                                <>
-                                    <div className='position-relative'>
-                                        <input type="text" className="form-control" placeholder="Buscar aluno... (Matricula ou Nome)" value={busca.termoMatricula} onChange={filtrarAlunosMatricula} />
-                                        <i className="bi bi-search position-absolute top-50 end-0 translate-middle-y me-3"></i>
-                                    </div>
-                                    {eletiva.exclusiva && (
-                                        <div className="form-check form-switch">
-                                            <input className="form-check-input" type="checkbox" role="switch" id="toggleExibirOutrasTurmas" checked={mostrarOutrasTurmas} onChange={(e) => setMostrarOutrasTurmas(e.target.checked)} />
-                                            <label className="form-check-label" htmlFor="toggleExibirOutrasTurmas">Mostrar alunos de outras turmas.</label>
-                                        </div>
-                                    )}
-                                    {todosAlunos.length > 0 ? (
-                                        <table className="table table-hover mt-4">
-                                            <thead>
-                                                <tr>
-                                                    <th></th>
-                                                    <th>Matrícula</th>
-                                                    <th>Nome</th>
-                                                    <th>Série / Turma</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {todosAlunos.map(aluno => (
-                                                    <tr key={aluno.matricula}>
-                                                        <td className='align-middle'>
-                                                            <input
-                                                                type="checkbox"
-                                                                name="aluno"
-                                                                id={aluno.matricula}
-                                                                value={aluno.matricula}
-                                                                onChange={() => handleSelecaoAluno(aluno.matricula)}
-                                                                checked={alunosSelecionados.includes(aluno.matricula)}
-                                                            />
-                                                        </td>
-                                                        <td className='align-middle'>{aluno.matricula}</td>
-                                                        <td className='align-middle'>{aluno.nome}</td>
-                                                        <td className='align-middle'>{aluno.serie} {aluno.turma}</td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    ) : (
-                                        <p className="text-center m-0 mt-2 text-danger fw-bold">Nenhum aluno disponível para matrícula.</p>
-                                    )}
-                                </>
-                            )}
-                        </div>
-                        <div className="modal-footer">
-                            <button type="button" className="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                            <button type="button" className="btn btn-success" data-bs-dismiss="modal" onClick={matricularAlunos} >
-                                <i className="bi bi-person-plus"></i>&ensp;Matricular Selecionados
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <ModalMatricularAluno carregando={carregando} busca={busca} eletiva={eletiva} todosAlunos={todosAlunos} setTodosAlunos={setTodosAlunos} setTodosAlunosOriginais={setTodosAlunosOriginais} alunosMatriculados={alunosMatriculados} setAlunosMatriculados={setAlunosMatriculados} alunosSelecionados={alunosSelecionados} setAlunosSelecionados={setAlunosSelecionados} mostrarOutrasTurmas={mostrarOutrasTurmas} filtrarAlunosMatricula={filtrarAlunosMatricula} setMostrarOutrasTurmas={setMostrarOutrasTurmas} />
 
-            {/* Modal de Confirmação de Desmatrícula */}
-            <div className="modal fade" id="desmatricularAluno" tabIndex="-1" role="dialog">
-                <div className="modal-dialog">
-                    <div className="modal-content">
-                        <div className="modal-header">
-                            <div className="d-flex align-items-center gap-2">
-                                <span className='d-flex align-items-center gap-2'>
-                                    <i className="bi bi-journal-bookmark-fill fs-3"></i>
-                                    <h4 className='m-0 fs-4'>Eletivas</h4>
-                                </span>
-                                <i className="bi bi-arrow-right-short fs-4"></i>
-                                <h5 className="m-0">Desmatricular</h5>
-                            </div>
-                            <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div className="modal-body">
-                            <p>Tem certeza que deseja desmatricular o aluno {alunoSelecionado?.nome}?</p>
-                        </div>
-                        <div className="modal-footer">
-                            <button type="button" className="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                            <button type="button" className="btn btn-danger" data-bs-dismiss="modal" onClick={desmatricularAluno} >
-                                <i className="bi bi-person-dash-fill"></i>&ensp;Desmatricular
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Modal: Editar Eletiva */}
-            <div className="modal fade" id="editarEletiva" tabIndex="-1" aria-labelledby="editarEletivaLabel" aria-hidden="true">
-                <div className="modal-dialog modal-xl">
-                    <div className="modal-content">
-                        <div className="modal-header">
-                            <div className="d-flex align-items-center gap-2">
-                                <span className='d-flex align-items-center gap-2'>
-                                    <i className="bi bi-journal-bookmark-fill fs-3"></i>
-                                    <h4 className='m-0 fs-4'>Eletivas</h4>
-                                </span>
-                                <i className="bi bi-arrow-right-short fs-4"></i>
-                                <h5 className="m-0">Editar</h5>
-                            </div>
-                            <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <EditarEletiva codigo={codigoEletiva} />
-                    </div>
-                </div>
-            </div>
+            <ModalDesmatricularAluno eletiva={eletiva} alunoSelecionado={alunoSelecionado} setAlunoSelecionado={setAlunoSelecionado} alunosMatriculados={alunosMatriculados} setAlunosMatriculados={setAlunosMatriculados} />
 
             {/* Modal: Gerar lista de chamada */}
             <div className="modal fade" id="gerarLista" tabIndex="-1" aria-labelledby="gerarListaLabel" aria-hidden="true">
@@ -465,7 +322,7 @@ export default function GerenciarEletiva() {
                                     <h4 className='m-0 fs-4'>Eletivas</h4>
                                 </span>
                                 <i className="bi bi-arrow-right-short fs-4"></i>
-                                <h5 className="m-0">Gerar lista de chamada</h5>
+                                <h5 className="m-0">Lista de chamada</h5>
                             </div>
                             <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
@@ -477,33 +334,9 @@ export default function GerenciarEletiva() {
                 </div>
             </div>
 
-            {/* Modal: Excluir Eletiva */}
-            <div className="modal fade" id="excluirEletiva" tabIndex="-1" aria-labelledby="excluirEletivaLabel" aria-hidden="true">
-                <div className="modal-dialog">
-                    <div className="modal-content">
-                        <div className="modal-header">
-                            <div className="d-flex align-items-center gap-2">
-                                <span className='d-flex align-items-center gap-2'>
-                                    <i className="bi bi-journal-bookmark-fill fs-3"></i>
-                                    <h4 className='m-0 fs-4'>Eletivas</h4>
-                                </span>
-                                <i className="bi bi-arrow-right-short fs-4"></i>
-                                <h5 className="m-0">Excluir</h5>
-                            </div>
-                            <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <form onSubmit={excluirEletiva}>
-                            <div className="modal-body">
-                                <p>Tem certeza de que deseja excluir a eletiva <b>{eletiva.nome}</b> Esta ação não poderá ser desfeita e todos os dados relacionados a esta eletiva serão <u>permanentemente</u> removidos.</p>
-                            </div>
-                            <div className="modal-footer">
-                                <button type="button" className="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                <button type='submit' className='btn btn-danger' data-bs-dismiss="modal"><i className="bi bi-trash3-fill"></i>&ensp;Excluir</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            </div>
+            <ModalEditarEletiva codigo={eletiva.codigo} instituicao={user.instituicao} />
+            <ModalExcluirEletiva codigo={eletiva.codigo} tipo={eletiva.tipo} instituicao={user.instituicao} />
+
         </>
     );
 }

@@ -6,7 +6,7 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   server: {
     host: process.env.VITE_HOST || '0.0.0.0',
-    port: parseInt(process.env.VITE_PORT) || 5173,
+    port: process.env.VITE_PORT || 5173,
   },
   
   plugins: [
@@ -50,6 +50,7 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,ico}'],
         cleanupOutdatedCaches: true,
         clientsClaim: true,
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024, // Aumentando o limite para 4 MB
       },
 
       devOptions: {

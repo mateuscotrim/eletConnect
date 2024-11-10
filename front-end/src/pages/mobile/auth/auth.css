@@ -1,20 +1,19 @@
-.emCima {
-    position: fixed;
-    width: 100%;
-    height: 30%;
-    background-color: #eeeeee;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+/* auth.css */
+html, body {
+    height: 100%;
+    margin: 0;
 }
 
-.emCima img {
-    width: 14em;
+#root {
+    height: 100%;
 }
 
-.emBaixo {
-    position: absolute;
-    top: 30%;
-    width: 100%;
-    height: 70%;
+.vh-100 {
+    height: 100vh !important; /* Garante que o componente ocupe 100% da altura da viewport */
+    overflow: hidden; /* Impede o scroll dentro da tela */
+}
+
+.bg-white {
+    max-width: 400px; /* Define um tamanho máximo para o formulário para evitar excesso */
+    width: 100%; /* O formulário ocupará toda a largura possível */
 }

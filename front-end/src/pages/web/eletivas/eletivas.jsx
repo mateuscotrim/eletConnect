@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { DateRange } from 'react-date-range';
-import 'react-date-range/dist/styles.css'; // Estilos básicos
-import 'react-date-range/dist/theme/default.css'; // Tema padrão
 import axios from '../../../configs/axios';
 import Header from '../../../components/header';
 import showToast from '../../../utills/toasts';
-import EditarEletiva from './editarEletiva';
+import ModalCadastrarPeriodo from './modals/cadastrarPeriodo';
+import ModalCadastrarEletiva from './modals/cadastrarEletiva';
+import ModalEditarEletiva from './modals/editarEletiva';
+import ModalExcluirEletiva from './modals/excluirEletiva';
+import ModalExcluirSelecionados from './modals/excluirSelecionados';
 
 export default function Eletiva() {
     const [ordenacao, setOrdenacao] = useState({ coluna: '', ascendente: true });
@@ -16,23 +17,23 @@ export default function Eletiva() {
     const [eletivaSelecionada, setEletivaSelecionada] = useState({ codigo: '', nome: '', tipo: '' });
     const [eletivasSelecionadas, setEletivasSelecionadas] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [isExclusiva, setIsExclusiva] = useState(false);
-    const [dataInicio, setDataInicio] = useState('');
-    const [dataFim, setDataFim] = useState('');
-
-    const [periodoSelecionado, setPeriodoSelecionado] = useState([
-        {
-            startDate: new Date(),
-            endDate: new Date(),
-            key: 'selection',
-        },
-    ]);
+    const [mensagemSucesso, setMensagemSucesso] = useState('');
+    const usuario = JSON.parse(sessionStorage.getItem('user'));
 
     const itensPorPagina = 10;
-    const usuario = JSON.parse(sessionStorage.getItem('user'));
 
     useEffect(() => {
         carregarEletivas();
+    }, []);
+
+    useEffect(() => {
+        // Verifica se há uma mensagem de sucesso armazenada no sessionStorage
+        const mensagem = sessionStorage.getItem('mensagemSucesso');
+        if (mensagem) {
+            setMensagemSucesso(mensagem);
+            showToast('success', mensagem); // Exibe a mensagem com um toast
+            sessionStorage.removeItem('mensagemSucesso'); // Remove a mensagem após exibir
+        }
     }, []);
 
     const carregarEletivas = async () => {
@@ -48,92 +49,6 @@ export default function Eletiva() {
             setIsLoading(false);
         }
     };
-
-    const cadastrarEletiva = async (e) => {
-        e.preventDefault();
-        const novaEletiva = {
-            instituicao: usuario.instituicao,
-            nome: e.target.nome.value,
-            tipo: e.target.tipo.value,
-            dia: e.target.dia.value,
-            horario: e.target.horario.value,
-            professor: e.target.professor.value,
-            sala: e.target.sala.value,
-            total_alunos: e.target.totalAlunos.value,
-            status: 'Ativo',
-            exclusiva: isExclusiva,
-            serie: isExclusiva ? e.target.serie.value : null,
-            turma: isExclusiva ? e.target.turma.value : null,
-        };
-
-        try {
-            const resposta = await axios.post('/eletivas/cadastrar', novaEletiva);
-            if (resposta.status === 201) {
-                e.target.reset();
-                setIsExclusiva(false);
-                showToast('success', resposta.data.mensagem);
-                setTimeout(() => carregarEletivas(), 500);
-            }
-        } catch (erro) {
-            showToast('danger', erro.response?.data.mensagem || 'Erro ao cadastrar a eletiva');
-        }
-    };
-
-    const excluirEletiva = async (e) => {
-        e.preventDefault();
-        try {
-            const resposta = await axios.post('/eletivas/excluir', { codigo: eletivaSelecionada.codigo, instituicao: usuario.instituicao, tipo: eletivaSelecionada.tipo });
-            if (resposta.status === 200) {
-                showToast('success', resposta.data.mensagem);
-                setTimeout(() => carregarEletivas(), 500);
-            }
-        } catch (erro) {
-            showToast('danger', erro.response?.data.mensagem || 'Erro ao excluir a eletiva.');
-        }
-    };
-
-    const excluirSelecionadas = async (e) => {
-        e.preventDefault();
-        try {
-            const resposta = await axios.post('/eletivas/excluir-multiplas', { eletivas: eletivasSelecionadas, instituicao: usuario.instituicao });
-            if (resposta.status === 200) {
-                showToast('success', resposta.data.mensagem);
-                setEletivasSelecionadas([]);
-                setTimeout(() => carregarEletivas(), 500);
-            }
-        } catch (erro) {
-            showToast('danger', erro.response?.data.mensagem || 'Erro ao excluir as eletivas selecionadas.');
-        }
-    };
-
-    const salvarPeriodo = async (e) => {
-        e.preventDefault();
-        try {
-            const dataInicioEscolhida = periodoSelecionado[0].startDate;
-            const dataFimEscolhida = periodoSelecionado[0].endDate;
-
-            // Definir o início do dia (00:00) para data de início
-            const dataInicioBrasilia = new Date(dataInicioEscolhida);
-            dataInicioBrasilia.setUTCHours(0, 0, 0, 0); // Hora de início do dia
-
-            // Definir o fim do dia (23:59) para data de fim
-            const dataFimBrasilia = new Date(dataFimEscolhida);
-            dataFimBrasilia.setUTCHours(23, 59, 59, 999); // Último minuto do dia
-
-            const response = await axios.post('/eletivas/definir-periodo', {
-                instituicao: usuario.instituicao,
-                dataInicio: dataInicioBrasilia.toISOString(), // Hora de início do dia
-                dataFim: dataFimBrasilia.toISOString(),       // Última hora do dia
-            });
-
-            if (response.status === 200) {
-                showToast('success', response.data.mensagem);
-            }
-        } catch (error) {
-            showToast('danger', error.response?.data.mensagem || 'Erro ao definir o período de inscrições.');
-        }
-    };
-
 
     const alternarOrdenacao = (coluna) => {
         setOrdenacao((prevState) => ({
@@ -186,28 +101,46 @@ export default function Eletiva() {
         return `${inicio} - ${fim}`;
     };
 
-    const toggleSelectEletiva = (codigo, tipo) => {
-        setEletivasSelecionadas((prevState) =>
-            prevState.some((sel) => sel.codigo === codigo && sel.tipo === tipo) ? prevState.filter((sel) => sel.codigo !== codigo) : [...prevState, { codigo, tipo }]
-        );
+    const toggleSelectEletiva = (codigo, tipo, nome) => {
+        const isSelected = eletivasSelecionadas.some(sel => sel.codigo === codigo && sel.tipo === tipo && sel.nome === nome);
+
+        if (isSelected) {
+            // Remove a eletiva da lista de selecionadas
+            setEletivasSelecionadas(prev =>
+                prev.filter(sel => !(sel.codigo === codigo && sel.tipo === tipo && sel.nome === nome))
+            );
+        } else {
+            // Adiciona a eletiva à lista de selecionadas
+            setEletivasSelecionadas(prev => [...prev, { codigo, tipo, nome }]);
+        }
     };
+
 
     const handleSelectAll = (e) => {
         if (e.target.checked) {
-            const selecoes = eletivasPaginadas.map((eletiva) => ({ codigo: eletiva.codigo, tipo: eletiva.tipo }));
+            // Seleciona todas as eletivas visíveis na página atual
+            const selecoes = eletivasPaginadas.map((eletiva) => ({
+                codigo: eletiva.codigo,
+                tipo: eletiva.tipo,
+                nome: eletiva.nome,
+            }));
             setEletivasSelecionadas(selecoes);
         } else {
+            // Remove todas as seleções visíveis na página atual
             setEletivasSelecionadas([]);
         }
     };
 
-    const getNomesEletivasSelecionadas = () => {
-        return eletivas.filter((eletiva) => eletivasSelecionadas.some((sel) => sel.codigo === eletiva.codigo)).map((eletiva) => eletiva.nome).join(', ');
-    };
+    // Verificação de todas as eletivas visíveis estarem selecionadas
+    const todasSelecionadas = eletivasPaginadas.length > 0 && eletivasPaginadas.every(
+        (eletiva) => eletivasSelecionadas.some(
+            (sel) => sel.codigo === eletiva.codigo && sel.tipo === eletiva.tipo && sel.nome === eletiva.nome
+        )
+    );
 
     return (
         <>
-            <div id='toast-container' className="toast-container position-fixed bottom-0 end-0 p-3"></div>
+            <div id='toast-container' className="toast-container position-absolute bottom-0 end-0 m-2"></div>
             <Header />
             <main id='main-section'>
                 <section id='section'>
@@ -227,7 +160,7 @@ export default function Eletiva() {
                                     </button>
                                     {eletivasSelecionadas.length > 0 && (
                                         <button className='btn btn-danger' data-bs-toggle="modal" data-bs-target="#excluirSelecionadasModal">
-                                            <i className="bi bi-trash3-fill"></i>&ensp;Excluir eletivas
+                                            <i className="bi bi-trash3-fill"></i>&ensp;Excluir selecionadas
                                         </button>
                                     )}
                                 </div>
@@ -257,7 +190,12 @@ export default function Eletiva() {
                                                 <tr>
                                                     <th>
                                                         <span className='form-check m-0'>
-                                                            <input className="form-check-input" type="checkbox" onChange={handleSelectAll} checked={eletivasSelecionadas.length === eletivasPaginadas.length} />
+                                                            <input
+                                                                className="form-check-input"
+                                                                type="checkbox"
+                                                                onChange={handleSelectAll}
+                                                                checked={todasSelecionadas}
+                                                            />
                                                         </span>
                                                     </th>
                                                     {['nome', 'tipo'].map(coluna => (
@@ -281,7 +219,12 @@ export default function Eletiva() {
                                                         <tr key={eletiva.codigo}>
                                                             <td className='align-middle'>
                                                                 <span className='form-check m-0'>
-                                                                    <input className="form-check-input" type="checkbox" checked={eletivasSelecionadas.some(sel => sel.codigo === eletiva.codigo && sel.tipo === eletiva.tipo)} onChange={() => toggleSelectEletiva(eletiva.codigo, eletiva.tipo)} />
+                                                                    <input
+                                                                        className="form-check-input"
+                                                                        type="checkbox"
+                                                                        checked={eletivasSelecionadas.some(sel => sel.codigo === eletiva.codigo && sel.tipo === eletiva.tipo && sel.nome === eletiva.nome)}
+                                                                        onChange={() => toggleSelectEletiva(eletiva.codigo, eletiva.tipo, eletiva.nome)}
+                                                                    />
                                                                 </span>
                                                             </td>
                                                             <td className='align-middle'>{eletiva.nome}</td>
@@ -367,238 +310,11 @@ export default function Eletiva() {
                 </section>
             </main>
 
-            {/* Modal: Cadastrar Eletiva */}
-            <div className="modal fade" id="cadastrarEletiva" tabIndex="-1" aria-labelledby="cadastrarEletivaLabel" aria-hidden="true">
-                <div className="modal-dialog modal-lg">
-                    <div className="modal-content">
-                        <div className="modal-header">
-                            <div className="d-flex align-items-center gap-2">
-                                <i className="bi bi-journal-bookmark-fill fs-3"></i>
-                                <h4 className='m-0 fs-4'>Eletivas</h4>
-                                <i className="bi bi-arrow-right-short fs-4"></i>
-                                <h5 className="m-0">Cadastrar</h5>
-                            </div>
-                            <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <form onSubmit={cadastrarEletiva} className="needs-validation" noValidate>
-                            <div className="modal-body">
-                                <div className="row g-3">
-                                    {/* Nome e Tipo */}
-                                    <div className="col-md-6">
-                                        <label htmlFor="nome" className="form-label">Nome <span className="text-danger">*</span></label>
-                                        <input type="text" className="form-control" id="nome" name="nome" required />
-                                        <div className="invalid-feedback">Por favor, insira o nome da eletiva.</div>
-                                    </div>
-                                    <div className="col-md-6">
-                                        <label htmlFor="tipo" className="form-label">Tipo <span className="text-danger">*</span></label>
-                                        <div className="d-flex justify-content-between">
-                                            <div className="form-check">
-                                                <input className="form-check-input" type="radio" id="eletivaRadio" name="tipo" value="Eletiva" required />
-                                                <label className="form-check-label" htmlFor="eletivaRadio">Eletiva</label>
-                                            </div>
-                                            <div className="form-check">
-                                                <input className="form-check-input" type="radio" id="projetoVidaRadio" name="tipo" value="Projeto de Vida" />
-                                                <label className="form-check-label" htmlFor="projetoVidaRadio">Projeto de Vida</label>
-                                            </div>
-                                            <div className="form-check">
-                                                <input className="form-check-input" type="radio" id="trilhaRadio" name="tipo" value="Trilha" />
-                                                <label className="form-check-label" htmlFor="trilhaRadio">Trilha</label>
-                                            </div>
-                                        </div>
-                                        <div className="invalid-feedback">Por favor, selecione o tipo da eletiva.</div>
-                                    </div>
-                                    <div className="col-md-6">
-                                        <label htmlFor="dia" className="form-label">Dia da semana <span className="text-danger">*</span></label>
-                                        <select className="form-select" id="dia" name="dia" required>
-                                            <option value="">Selecione...</option>
-                                            <option value="Terça-feira">Terça-feira</option>
-                                            <option value="Quinta-feira">Quinta-feira</option>
-                                            <option value="Terça-feira e Quinta-feira">Terça-feira e Quinta-feira</option>
-                                        </select>
-                                        <div className="invalid-feedback">Por favor, selecione o dia da semana.</div>
-                                    </div>
-                                    <div className="col-md-3">
-                                        <label htmlFor="horario" className="form-label">Horário <span className="text-danger">*</span></label>
-                                        <select className="form-select" id="horario" name="horario" required>
-                                            <option value="">Selecione...</option>
-                                            <option value="1º e 2º horário">1º e 2º horário</option>
-                                            <option value="3º e 4º horário">3º e 4º horário</option>
-                                            <option value="5º e 6º horário">5º e 6º horário</option>
-                                        </select>
-                                        <div className="invalid-feedback">Por favor, selecione o horário.</div>
-                                    </div>
-                                    <div className="col-md-3">
-                                        <label htmlFor="totalAlunos" className="form-label">Total de alunos <span className="text-danger">*</span></label>
-                                        <input type="number" className="form-control" id="totalAlunos" name="totalAlunos" required />
-                                        <div className="invalid-feedback">Por favor, insira o total de alunos.</div>
-                                    </div>
-                                    <div className="col-md-9">
-                                        <label htmlFor="professor" className="form-label">Professor <span className="text-danger">*</span></label>
-                                        <input type="text" className="form-control" id="professor" name="professor" required />
-                                        <div className="invalid-feedback">Por favor, insira o nome do professor.</div>
-                                    </div>
-                                    <div className="col-md-3">
-                                        <label htmlFor="sala" className="form-label">Sala <span className="text-danger">*</span></label>
-                                        <input type="text" className="form-control" id="sala" name="sala" required />
-                                        <div className="invalid-feedback">Por favor, insira a sala.</div>
-                                    </div>
-                                    <div className="col-md-12">
-                                        <div className="form-check form-switch">
-                                            <input className="form-check-input" type="checkbox" id="exclusivaSwitch" checked={isExclusiva === true} onChange={() => setIsExclusiva(isExclusiva === true ? false : true)} />
-                                            <label className="form-check-label" htmlFor="exclusivaSwitch">Exclusiva para uma turma?</label>
-                                        </div>
-                                        {isExclusiva === true && (
-                                            <div className="row">
-                                                <div className="col-md-6">
-                                                    <label htmlFor="serie" className="form-label">Série <span className="text-danger">*</span></label>
-                                                    <select className="form-select" id="serie" name="serie" required>
-                                                        <option value="">Selecione...</option>
-                                                        <option value="1º ano">1º ano</option>
-                                                        <option value="2º ano">2º ano</option>
-                                                        <option value="3º ano">3º ano</option>
-                                                    </select>
-                                                    <div className="invalid-feedback">Por favor, selecione a série.</div>
-                                                </div>
-                                                <div className="col-md-6">
-                                                    <label htmlFor="turma" className="form-label">Turma <span className="text-danger">*</span></label>
-                                                    <select className="form-select" id="turma" name="turma" required>
-                                                        <option value="">Selecione...</option>
-                                                        {[...Array(26)].map((_, i) => {
-                                                            const turma = String.fromCharCode(65 + i); // 65 é o código ASCII para 'A'
-                                                            return (
-                                                                <option key={turma} value={turma}>{turma}</option>
-                                                            );
-                                                        })}
-                                                    </select>
-                                                    <div className="invalid-feedback">Por favor, selecione a turma.</div>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="modal-footer">
-                                <button type="button" className="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                <button type="submit" className="btn btn-primary" data-bs-dismiss="modal"><i className="bi bi-clipboard-plus"></i>&ensp;Cadastrar</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            </div>
-
-            {/* Modal: Editar Eletiva */}
-            <div className="modal fade" id="editarEletiva" tabIndex="-1" aria-labelledby="editarEletivaLabel" aria-hidden="true">
-                <div className="modal-dialog modal-xl">
-                    <div className="modal-content">
-                        <div className="modal-header">
-                            <div className="d-flex align-items-center gap-2">
-                                <span className='d-flex align-items-center gap-2'>
-                                    <i className="bi bi-journal-bookmark-fill fs-3"></i>
-                                    <h4 className='m-0 fs-4'>Eletivas</h4>
-                                </span>
-                                <i className="bi bi-arrow-right-short fs-4"></i>
-                                <h5 className="m-0">Editar</h5>
-                            </div>
-                            <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <EditarEletiva codigo={eletivaSelecionada.codigo} />
-                    </div>
-                </div>
-            </div>
-
-            {/* Modal: Excluir Eletiva */}
-            <div className="modal fade" id="excluirEletiva" tabIndex="-1" aria-labelledby="excluirEletivaLabel" aria-hidden="true">
-                <div className="modal-dialog">
-                    <div className="modal-content">
-                        <div className="modal-header">
-                            <div className="d-flex align-items-center gap-2">
-                                <span className='d-flex align-items-center gap-2'>
-                                    <i className="bi bi-journal-bookmark-fill fs-3"></i>
-                                    <h4 className='m-0 fs-4'>Eletivas</h4>
-                                </span>
-                                <i className="bi bi-arrow-right-short fs-4"></i>
-                                <h5 className="m-0">Excluir</h5>
-                            </div>
-                            <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <form onSubmit={excluirEletiva}>
-                            <div className="modal-body">
-                                <p>Tem certeza de que deseja excluir a eletiva <b>{eletivaSelecionada.nome}</b> Esta ação não poderá ser desfeita e todos os dados relacionados a esta eletiva serão <u>permanentemente</u> removidos.</p>
-                            </div>
-                            <div className="modal-footer">
-                                <button type="button" className="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                <button type='submit' className='btn btn-danger' data-bs-dismiss="modal"><i className="bi bi-trash3-fill"></i>&ensp;Excluir</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            </div>
-
-            {/* Modal: Excluir Eletivas Selecionadas */}
-            <div className="modal fade" id="excluirSelecionadasModal" tabIndex="-1" aria-labelledby="excluirSelecionadasModalLabel" aria-hidden="true">
-                <div className="modal-dialog">
-                    <div className="modal-content">
-                        <div className="modal-header">
-                            <h5 className="modal-title" id="excluirSelecionadasModalLabel">Excluir Eletivas Selecionadas</h5>
-                            <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div className="modal-body">
-                            <p>Tem certeza que deseja excluir as eletivas selecionadas?</p>
-                            <p><b>Eletivas selecionadas: </b>{getNomesEletivasSelecionadas()}</p>
-                        </div>
-                        <div className="modal-footer">
-                            <button type="button" className="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                            <button type="button" className="btn btn-danger" onClick={excluirSelecionadas} data-bs-dismiss="modal">Excluir</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Modal: Definir Período */}
-            <div className="modal fade" id="definirPeriodo" tabIndex="-1" aria-labelledby="definirPeriodoLabel" aria-hidden="true">
-                <div className="modal-dialog">
-                    <div className="modal-content">
-                        <div className="modal-header">
-                            <div className="d-flex align-items-center gap-2">
-                                <span className='d-flex align-items-center gap-2'>
-                                    <i className="bi bi-journal-bookmark-fill fs-3"></i>
-                                    <h4 className='m-0 fs-4'>Eletivas</h4>
-                                </span>
-                                <i className="bi bi-arrow-right-short fs-4"></i>
-                                <h5 className="m-0">Definir período</h5>
-                            </div>
-                            <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <form onSubmit={salvarPeriodo}>
-                            <div className="text-center m-2">
-                                <p className='mx-4'>
-                                    O período de inscrições vai de <strong>{periodoSelecionado[0].startDate.toLocaleDateString('pt-BR', {
-                                        weekday: 'long',
-                                        month: 'long',
-                                        day: 'numeric',
-                                    })}</strong> até <strong>{periodoSelecionado[0].endDate.toLocaleDateString('pt-BR', {
-                                        weekday: 'long',
-                                        month: 'long',
-                                        day: 'numeric',
-                                    })}</strong>, totalizando <strong>
-                                        {
-                                            Math.ceil(
-                                                (periodoSelecionado[0].endDate.getTime() - periodoSelecionado[0].startDate.getTime()) / (1000 * 3600 * 24)
-                                            )
-                                        }</strong> dias.
-                                </p>
-                                <DateRange editableDateInputs={true} onChange={(item) => setPeriodoSelecionado([item.selection])} moveRangeOnFirstSelection={false} ranges={periodoSelecionado} />
-                            </div>
-                            <div className="modal-footer">
-                                <button type="button" className="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                <button type="submit" className="btn btn-primary" data-bs-dismiss="modal">
-                                    <i className="bi bi-calendar-check"></i>&ensp;Definir
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            </div>
+            <ModalCadastrarPeriodo instituicao={usuario.instituicao} />
+            <ModalCadastrarEletiva usuario={usuario} />
+            <ModalEditarEletiva codigo={eletivaSelecionada.codigo} instituicao={usuario.instituicao} />
+            <ModalExcluirEletiva codigo={eletivaSelecionada.codigo} tipo={eletivaSelecionada.tipo} instituicao={usuario.instituicao} />
+            <ModalExcluirSelecionados eletivasSelecionadas={eletivasSelecionadas} usuario={usuario} />
         </>
     );
 }

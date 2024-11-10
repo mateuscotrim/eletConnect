@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from '../../../configs/axios';
 import MHeader from '../../../components/mheader';
 import MFooter from '../../../components/mfooter';
-import '../../../assets/styles/my-bootstrap.css'; // Certifique-se de que o arquivo de estilos seja carregado
+import '../../../assets/styles/my-bootstrap.css';
 
 const diasSemana = [
     { key: 'Terça-feira', label: 'Terça-feira' },
@@ -65,7 +65,7 @@ export default function Home() {
     return (
         <>
             <MHeader />
-            <main id="mMain" className='container pt-3' style={{ paddingBottom: '5em', overflowY: 'auto' }}>
+            <main id="mMain" className='  p-4' style={{ paddingBottom: '5em', overflowY: 'auto' }}>
                 {carregando ? (
                     <div className="d-flex justify-content-center align-items-center mb-4">
                         <div className="spinner-border text-primary" role="status">
@@ -80,7 +80,6 @@ export default function Home() {
                                 <div className="d-flex align-items-center gap-2">
                                     <i className="bi bi-bell h4 mb-0"></i>
                                     <h6 className="mb-0">QUADRO DE AVISOS</h6>
-                                    {/* Mostrar badge apenas se houver mais de um aviso */}
                                     {avisos.length > 1 && (
                                         <span className="badge text-bg-danger">{avisos.length}</span>
                                     )}
