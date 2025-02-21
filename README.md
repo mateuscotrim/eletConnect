@@ -37,7 +37,6 @@ O projeto utiliza **Vite** como ferramenta de build para otimizar o desempenho e
 📂 eletconnect
  ├── 📂 frontend (React + Vite)
  ├── 📂 backend (Node.js + Express)
- ├── 📜 package.json
  ├── 📜 README.md
 ```
 
