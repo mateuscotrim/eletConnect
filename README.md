@@ -1,4 +1,4 @@
-# ⚡ EletConnect
+# 🚀 EletConnect
 
 EletConnect é uma plataforma intuitiva de gerenciamento de eletivas que permite aos alunos escolher e se matricular diretamente pelo celular, enquanto a equipe administrativa gerencia alunos, eletivas e funcionários com eficiência.
 
