@@ -5,13 +5,13 @@ EletConnect é uma plataforma intuitiva de gerenciamento de eletivas que permite
 ## 🚀 Funcionalidades
 
 ### 🎓 Para Escolas e Administradores
-1. **Cadastro e Configuração** – Configure a escola, organize turmas e cadastre disciplinas com facilidade.
-2. **Organização das Turmas** – Gerencie as turmas conforme as escolhas dos alunos e a disponibilidade de vagas.
-3. **Acompanhamento de Matrículas** – Visualize em tempo real o número de alunos matriculados em cada disciplina.
-4. **Controle de Presença** – Gera um PDF com a lista de chamada para acompanhamento.
-6. **Atualização de Informações** – Edite e atualize disciplinas, turmas e alunos sempre que necessário.
-7. **Acesso Restrito** – Controle permissões de acesso conforme cargo e função.
-8. **Relatórios Simples** – Gere relatórios rápidos para obter insights sobre disciplinas e turmas.
+- **Cadastro e Configuração** – Configure a escola, organize turmas e cadastre disciplinas com facilidade.
+- **Organização das Turmas** – Gerencie as turmas conforme as escolhas dos alunos e a disponibilidade de vagas.
+- **Acompanhamento de Matrículas** – Visualize em tempo real o número de alunos matriculados em cada disciplina.
+- **Controle de Presença** – Gera um PDF com a lista de chamada para acompanhamento.
+- **Atualização de Informações** – Edite e atualize disciplinas, turmas e alunos sempre que necessário.
+- **Acesso Restrito** – Controle permissões de acesso conforme cargo e função.
+- **Relatórios Simples** – Gere relatórios rápidos para obter insights sobre disciplinas e turmas.
 
 ### 📱 Para Alunos
 - **Inscrição Simples** – Escolha e inscreva-se nas eletivas de forma digital pelo smartphone.
